@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="ko"><meta charset="utf-8"><meta name="viewport" content="width=device-width">
+<title>SanctusArs · 최종 검토</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f1eee8;color:#282b2b;font-family:system-ui,sans-serif;padding:32px}
+main{max-width:1180px;margin:auto}h1{font-family:Georgia,serif;font-weight:400;font-size:36px;margin-bottom:8px}
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:24px}canvas{width:100%;height:auto;display:block;background:#e8e2d6}
+article{background:white;padding:14px;border-radius:8px}button{border:0;background:#243d4b;color:white;padding:12px 20px;margin-top:12px;border-radius:4px;font-size:15px;cursor:pointer}button:disabled{opacity:.4}
+pre{white-space:pre-wrap;line-height:1.8;background:white;padding:24px}.status{padding:16px 0}#status{font-weight:600}.error{color:#ad2626}
+@media(max-width:700px){body{padding:16px}.pair{grid-template-columns:1fr}}
+</style>
+<main><h1>SanctusArs</h1><p>최종 승인 전 미리보기 · 다운로드는 게시나 승인을 의미하지 않습니다.</p>
+<div class="status" id="context"></div><p id="status" role="status">이미지와 글꼴을 준비하고 있습니다…</p>
+<section class="pair"><article><canvas id="artwork" width="1080" height="1350" aria-label="작품형"></canvas><button id="artDownload" disabled>작품형 PNG 다운로드</button></article>
+<article><canvas id="card" width="1080" height="1350" aria-label="말씀카드형"></canvas><button id="cardDownload" disabled>말씀카드 PNG 다운로드</button></article></section>
+<h2>Threads 본문</h2><pre id="threads"></pre><h2>네이버 블로그 본문</h2><pre id="blog"></pre>
+<h2>검토할 문장</h2><pre id="copy"></pre><h2>확인한 출처</h2><nav id="sources" aria-label="복음 검증 출처"></nav></main>
+<script id="payload" type="application/json">__PAYLOAD__</script>
+<script>
+(async () => {
+ const p=JSON.parse(document.getElementById('payload').textContent);
+ const $=id=>document.getElementById(id);
+ $('context').textContent=[p.date,p.day,p.mass,p.reference,p.occasion].filter(Boolean).join(' · ');
+ $('threads').textContent=p.threads_text; $('blog').textContent=p.blog_text;
+ for(const [key,label] of [['primary_url','주교회의 원문'],['calendar_url','전례력 확인'],['crosscheck_url','복음 대조']]){
+  const link=document.createElement('a');link.href=p.sources[key];link.textContent=label;link.target='_blank';link.rel='noopener noreferrer';
+  $('sources').append(link,document.createTextNode(' · '));
+ }
+ $('copy').textContent=`성경 인용: ${p.scripture_quote}\n${p.reference}\n\n묵상: ${p.meditation}\n\n기도: ${p.prayer}\n\n질문: ${p.question}`;
+ const img=src=>new Promise((resolve,reject)=>{const i=new Image();i.onload=()=>resolve(i);i.onerror=()=>reject(Error('이미지 로딩 실패'));i.src=src;});
+ const fit=(ctx,i,x,y,w,h)=>{const s=Math.min(w/i.width,h/i.height);ctx.drawImage(i,x+(w-i.width*s)/2,y+(h-i.height*s)/2,i.width*s,i.height*s);};
+ const wrap=(ctx,text,width)=>{const lines=[];for(const paragraph of text.split('\n')){let line='';for(const char of paragraph){if(ctx.measureText(line+char).width>width&&line){lines.push(line);line='';}line+=char;}lines.push(line);}return lines;};
+ try {
+  const font=new FontFace('Sacred',`url(${p.font})`);document.fonts.add(await font.load());await document.fonts.ready;
+  const [painting,logo]=await Promise.all([img(p.image),img(p.logo)]);
+  for(const id of ['artwork','card']){
+   const ctx=$(id).getContext('2d');ctx.fillStyle='#eee8dc';ctx.fillRect(0,0,1080,1350);
+   fit(ctx,painting,40,40,1000,id==='card'?940:1210);
+   ctx.fillStyle='#293d47';ctx.textAlign='center';
+   if(id==='card'){
+    ctx.font='40px Sacred';const lines=wrap(ctx,p.card_text,940);
+    if(lines.length>3)throw Error('카드 문구가 너무 깁니다. 세 줄 이하로 줄여 주세요.');
+    lines.forEach((line,i)=>ctx.fillText(line,540,1040+i*55));
+    ctx.font='23px Sacred';ctx.fillText(p.card_kind==='scripture'?p.reference:'SanctusArs 묵상',540,1242);
+   }
+   fit(ctx,logo,475,1280,130,42);
+  }
+  for(const [button,canvas,name] of [['artDownload','artwork','artwork.png'],['cardDownload','card','card.png']]){
+   $(button).disabled=false;$(button).onclick=()=>$(canvas).toBlob(blob=>{const a=document.createElement('a');const url=URL.createObjectURL(blob);a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);},'image/png');
+  }
+  $('status').textContent='렌더링 완료 · 한글, 그림, 로고와 여백을 확인해 주세요.';
+ }catch(error){$('status').textContent=error.message;$('status').classList.add('error');}
+})();
+</script></html>
