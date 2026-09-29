@@ -20,7 +20,9 @@ Codex에서 사용하는 **SanctusArs 전용 제작 프로젝트**다. 공식 �
 
 **사용자는 날짜만 요청하면 된다.** 날짜를 지정하려면 “2026년 10월 1일 복음 포스팅 만들어줘”라고 한다. Codex가 공식 복음 확인, 짧은 글 작성, 고정 생성 입력 준비, 실제 이미지 세 장 생성과 검토를 진행한다. 사용자가 프롬프트나 참조 파일을 골라 전달할 필요는 없다.
 
-**기본은 복음 포스팅 한 건과 그림 세 장**이다. 전례일은 매번 확인하되 축일 특별 포스팅은 요청받을 때만 별도로 세 장을 만든다. [글과 그림 예시](examples/2026-09-29/README.md)에서 기준을 볼 수 있다.
+**기본은 복음 포스팅 한 건과 그림 세 장**이다. 전례일은 매번 확인하되 축일 특별 포스팅은 요청받을 때만 별도로 세 장을 만든다. [최신 글과 그림 예시](examples/2026-10-02/README.md)에서 기준을 볼 수 있다.
+
+**2026년 10월 2일 제작:** 공식 복음이 예시의 마태 18,1-5.10과 일치하면 동봉된 `examples/2026-10-02/content.json`과 `scenes.json`을 그대로 prepare에 사용한다. 두 채널 본문은 같은 249자이며 생성 지시와 v3 참조는 고정된다. 실제 새 그림 세 장을 만들고 동봉된 기준과 비교한다. 예시 그림을 새 생성 결과인 것처럼 제공하지 않는다. 새 생성의 픽셀 단위 동일성은 보장하지 않으며, 예시 자체가 필요하면 동봉 원본 세 장을 그대로 받을 수 있다.
 
 날짜를 생략하면 한국 날짜를 먼저 확정한다. 로컬 PC의 미국 날짜를 그대로 쓰지 않는다. 여러 미사 양식 또는 특별 성인 후보가 있으면 선택을 요청한다.
 
@@ -39,7 +41,7 @@ Codex에서 사용하는 **SanctusArs 전용 제작 프로젝트**다. 공식 �
 
 ## 카드에 필요한 자산
 
-- 기준 화풍: 사용자 확정 **v1** 원본 여섯 장을 보존한다. 매 생성에는 `brand/generation.json`의 후보별 프로필이 선택한 두 장을 구도·공간감·색 관계의 참조로 사용하고, 인물·표면 묘사는 최신 회화 지시를 따른다. `brand/style.md`와 `brand/references/v1/README.md`에서 기준을 확인한다. 초기 `brand/reference-b.png`는 탐색 이력이다.
+- 기준 화풍: `brand/references/v3/`의 사용자 지정 두 참조로 현대적 색면·생략된 공간·인물 관계를 유지한다. 최신 요청에 따라 **중성에 가까운 은은한 온기**를 사용하며 고정 지시로 이 균형을 적용한다. 참조 원본의 차가운 색감은 복제하지 않는다. `brand/generation.json`에 후보별 참조 순서와 고정 지시가 있다. `brand/style.md`와 `brand/references/v3/README.md`를 따른다. v1·v2는 이력으로 보존한다.
 - 공식 로고: 사용자가 제공하는 PNG/JPEG/WebP 원본. 임의 로고로 대체하지 않는다. SVG는 안전하게 래스터로 내보낸 공식 버전을 제공한다.
 - 한글 글꼴: 사용자 지정 **Pretendard(프리텐다드)**. 실제 파일과 사용·배포 조건을 준비한다. 지원 형식은 TTF/OTF/WOFF/WOFF2이며 본문은 실제 브라우저에서 확인해야 한다.
 
@@ -66,16 +68,14 @@ python3 scripts/sanctusars.py prepare job.json content.json scenes.json
 # 출력된 prepared/v-N의 A/B/C-request.json을 Codex가 내장 이미지 도구에 그대로 전달
 python3 scripts/sanctusars.py candidate job.json A generated-a.png --request-file prepared/v-N/A-request.json
 # B, C도 실제 생성한 뒤 해당 request 파일로 등록
-# 좋은 구도와 화풍 안의 국소 결함에만 한 차례 보정
-python3 scripts/sanctusars.py refine job.json A --correction '구도와 인물은 유지하고 문틀 가장자리의 뒤틀림만 수정'
-# 반환된 A-request.json으로 실제 편집 후 새 candidate 등록
+# 수정 요청은 scenes를 다시 설계하고 prepare 후 해당 후보를 새로 생성
 python3 scripts/sanctusars.py select job.json B --message '사용자의 실제 선택 메시지'
 python3 scripts/sanctusars.py preview job.json content.json --logo brand/logo.png --font brand/font.otf
 ```
 
 `templates/content.json`과 `templates/scenes.json`은 Codex가 채운다. prepare는 글 길이·공통 본문·인용 표기를 검사하고, `brand/generation.json`의 고정 지시와 확정 참조를 결합한다. 준비 폴더에는 실제 도구 입력, 글, 참조 사본을 보존한다. 신규 제작은 준비 요청 없이 후보를 등록할 수 없다. 이 명령이 이미지를 생성하는 것은 아니며 실제 내장 도구 호출은 Codex가 담당한다. `card_kind=scripture`이면 검증된 복음 발췌만, `meditation`이면 창작 묵상 문구를 넣는다. 최종 미리보기 HTML에는 글꼴·이미지가 내장되어 외부 서버에 보내지 않는다. 최신 브라우저에서 열어 두 다운로드 버튼으로 **1080×1350 PNG**를 받는다. 렌더링 오류가 표시되면 먼저 해결한다.
 
-전체 화풍, 비늘 같은 반복 질감, 실사 인물과 배경의 부조화, 기본 구성이 실패했다면 refine으로 덧칠하지 않는다. Codex가 확정 기준 안에서 장면·시점·표현 설계를 다시 판단하고 필요한 scenes 항목을 수정한 뒤 prepare로 해당 후보를 처음부터 새로 생성한다. 이 요청에는 확정 참조 두 장만 들어가며 실패 원본과 오류 확대 캡처를 넣지 않는다. 후보별 자동 재작업은 새 생성 또는 국소 보정 한 차례 후 재검토한다. 결함이 남으면 공개하고, 이전 이미지와 성공 후보는 보존하며 확정 참조는 승인 없이 교체하지 않는다.
+이미지 수정 요청은 색감만 바꾸는 경우에도 항상 새 생성으로 처리한다. 장면·시점·표현 지시를 수정하고 prepare로 새 입력을 만든다. 기존 후보를 편집 대상으로 전달하거나 원본 위에 덧칠하지 않는다. 내장 도구에는 현재 공간 참조 두 장만 넣고 실패 후보·오류 확대 캡처는 넣지 않는다. refine 명령과 이미지 편집 기능은 제거했다. 자동 재제작은 후보별 한 번 후 검토하며 남은 한계는 공개한다. 이전 원본과 성공한 후보는 보존하고 사용자 선택·최종 승인으로 간주하지 않는다.
 
 ```sh
 python3 scripts/sanctusars.py rendered job.json artwork.png card.png --review '한글·로고·잘림·원본 일치 실제 확인'
@@ -106,7 +106,7 @@ python3 -m unittest discover -s tests -v
 
 현재는 공식 문서로 기능 지원을 확인한 단계다. 별도의 Plus 계정에서 새로 복제한 저장소만으로 제작하는 재현성 시험은 아직 수행하지 않았다. 실사용 검증에서는 기존 대화 없이 참조 이미지·지침만 읽고 같은 날짜 한 건과 다른 날짜 한 건을 제작하여 글과 복음의 일치, 화풍, 얼굴·손, 수정 횟수와 사용량을 비교해야 한다. 사용 가능 여부, 일관된 품질, 비용 내 지속 운영을 각각 확인한다.
 
-확정 참조 여섯 장과 마지막 수정 프롬프트는 Git 제외인 `output/`와 별도로 `brand/references/v1/`에 보존한다.
+현재 참조 두 장과 원래 생성 프롬프트는 `brand/references/v3/`에, 이전 여섯 장은 `brand/references/v1/`에 보존한다. 원래 프롬프트는 출처 기록이며 최신 색감 지시를 덮어쓰지 않는다.
 
 ## 범위와 배포
 

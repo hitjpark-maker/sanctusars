@@ -303,7 +303,7 @@ class DatesAndJobs(unittest.TestCase):
                 reference = Path(name)
                 self.assertTrue(reference.is_absolute())
                 self.assertTrue(reference.is_relative_to(prepared))
-                original = SCRIPT.parent.parent / 'brand/references/v1' / reference.name
+                original = SCRIPT.parent.parent / 'brand/references/v3' / reference.name
                 self.assertEqual(reference.read_bytes(), original.read_bytes())
         self.assertEqual((prepared / 'threads.txt').read_text().strip(), content()['threads_text'])
         self.assertEqual((prepared / 'blog.txt').read_bytes(), (prepared / 'threads.txt').read_bytes())
@@ -490,48 +490,24 @@ class DatesAndJobs(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.app.prepare(path, copy, scenes())
 
-    def test_refine_preserves_other_candidates_and_allows_one_correction_per_label(self):
-        self.assertTrue(callable(getattr(self.app, 'refine', None)), 'Local correction preparation is missing')
+    def test_revisions_only_prepare_fresh_images_and_preserve_old_candidates(self):
         path = self.prepared_job()
         self.candidates(path)
         before = self.app.load_job(path)
-        refined = self.app.refine(path, 'A', 'Synthetic defect: simplify the far wall only')
-        request = json.loads(refined.read_text())
-        self.assertEqual(len(request['referenced_image_paths']), 3)
-        self.assertIn('EDIT IMAGE 1', request['prompt'])
-        original = path.parent / before['candidates']['A']['path']
-        self.assertEqual(Path(request['referenced_image_paths'][0]).read_bytes(), original.read_bytes())
-        after = self.app.load_job(path)
-        self.assertEqual(after['prepared']['fingerprints']['B'], before['prepared']['fingerprints']['B'])
-        self.assertEqual(after['prepared']['fingerprints']['C'], before['prepared']['fingerprints']['C'])
-        with self.assertRaises(ValueError):
-            self.app.select_candidate(path, 'B', '합성 선택')
-        self.register(path, 'A', png(path.parent / 'fixed-a.png', (9, 8, 7)))
-        self.app.select_candidate(path, 'B', '합성 선택')
-        with self.assertRaises(ValueError):
-            self.app.refine(path, 'A', 'Again')
-        fixed_a = self.app.load_job(path)['prepared']['fingerprints']['A']
-        self.app.refine(path, 'C', 'Synthetic defect: simplify the lower edge only')
-        self.assertEqual(self.app.load_job(path)['prepared']['fingerprints']['A'], fixed_a)
-        self.register(path, 'C', png(path.parent / 'fixed-c.png', (7, 8, 9)))
-        self.app.select_candidate(path, 'B', '합성 선택')
-
-    def test_refine_rejects_stale_candidate_and_changed_snapshot(self):
-        self.assertTrue(callable(getattr(self.app, 'refine', None)), 'Local correction preparation is missing')
-        path = self.prepared_job()
-        self.candidates(path)
         changed = scenes()
-        changed['A']['scene'] += ' changed'
-        self.app.prepare(path, content(), changed)
-        with self.assertRaises(ValueError):
-            self.app.refine(path, 'A', 'A correction for an obsolete scene')
-        job = self.app.load_job(path)
-        request = path.parent / job['prepared']['directory'] / 'B-request.json'
-        request.write_text(request.read_text() + ' ')
-        with self.assertRaises(ValueError):
-            self.app.refine(path, 'B', 'A correction using changed input')
-
-
+        changed['A']['scene'] += ' A newly composed scene.'
+        prepared = self.app.prepare(path, content(), changed)
+        for label in 'ABC':
+            request = json.loads((prepared / f'{label}-request.json').read_text())
+            self.assertEqual(len(request['referenced_image_paths']), 2)
+            self.assertNotIn('EDIT IMAGE', request['prompt'])
+            self.assertTrue(all('repair-target' not in name for name in request['referenced_image_paths']))
+        for candidate in before['candidates'].values():
+            self.assertEqual(self.app.digest(path.parent / candidate['path']), candidate['sha256'])
+        self.assertFalse(callable(getattr(self.app, 'refine', None)))
+        result = subprocess.run([sys.executable, str(SCRIPT), 'refine', str(path), 'A',
+                                 '--correction', 'Change color'], capture_output=True, text=True)
+        self.assertEqual(result.returncode, 2)
 
 
 if __name__ == '__main__':

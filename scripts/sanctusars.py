@@ -251,7 +251,7 @@ def prepare(job_path: Path, content: dict, scenes: dict, *, extended_message: st
             raise ValueError('후보마다 scene과 scripture_relation 두 항목만 작성하세요')
     brand = Path(__file__).resolve().parents[1] / 'brand'
     config_path = brand / 'generation.json'
-    manifest_path = brand / 'references/v1/manifest.json'
+    manifest_path = brand / 'references/v3/manifest.json'
     config = json.loads(config_path.read_text(encoding='utf-8'))
     manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
     if config.get('version') != '2' or set(config.get('profiles', {})) != set('ABC') or not config.get('common_prompt', '').strip():
@@ -337,68 +337,6 @@ def require_prepared(job_path: Path, job: dict, prepared: dict | None = None) ->
         if not path.is_file() or digest(path) != checksum:
             raise ValueError('준비된 본문·프롬프트·참조가 변경되었습니다. prepare를 다시 실행하세요')
     return prepared
-
-
-def refine(job_path: Path, label: str, correction: str) -> Path:
-    """Prepare one local edit; callers invoke the native tool with the saved request."""
-    job_path = Path(job_path).resolve()
-    job = load_job(job_path)
-    require_evidence(job)
-    prepared = require_prepared(job_path, job)
-    if label not in 'ABC' or len(label) != 1 or not isinstance(correction, str) or not correction.strip():
-        raise ValueError('후보 A/B/C와 구체적인 결함 수정 지시가 필요합니다')
-    previous = [item for item in job['history'] if item['action'] == 'refine'
-                and item['label'] == label and item['context_hash'] == context_hash(job)]
-    if previous:
-        raise ValueError('후보별 자동 보정은 한 번입니다. 도구 호출만 실패했다면 기존 요청 파일을 재사용하세요: ' + previous[-1]['request'])
-    candidate = job['candidates'].get(label, {})
-    if candidate.get('context_hash') != context_hash(job) or candidate.get('prepared', {}).get('fingerprints', {}).get(label) != prepared['fingerprints'][label]:
-        raise ValueError('현재 준비 내용과 일치하는 실제 후보가 필요합니다')
-    require_prepared(job_path, job, candidate['prepared'])
-    target = inside(job_path, candidate['path'])
-    if digest(target) != candidate['sha256']:
-        raise ValueError('보정할 후보 이미지가 변경되었습니다')
-    old = inside(job_path, prepared['directory'])
-    directory = prepare(job_path, json.loads((old / 'content.json').read_text(encoding='utf-8')),
-                        json.loads((old / 'scenes.json').read_text(encoding='utf-8')),
-                        extended_message=prepared['extended_message'])
-    try:
-        # Carry forward earlier local edits, including their frozen target images.
-        for name in ('generation.json', 'reference-manifest.json'):
-            shutil.copyfile(old / name, directory / name)
-        for current in 'ABC':
-            request = json.loads((old / f'{current}-request.json').read_text(encoding='utf-8'))
-            paths = []
-            for source_name in request['referenced_image_paths']:
-                source = inside(job_path, source_name)
-                copied = directory / 'references' / source.name
-                shutil.copyfile(source, copied)
-                paths.append(str(copied))
-            request['referenced_image_paths'] = paths
-            if current == label:
-                copied = directory / 'references' / f'{label}-repair-target{image_type(target)}'
-                shutil.copyfile(target, copied)
-                request['referenced_image_paths'].insert(0, str(copied))
-                request['prompt'] = request['prompt'].replace('Image 1 controls', 'First STYLE REFERENCE controls').replace('Image 2 controls', 'Second STYLE REFERENCE controls')
-                instruction = ('EDIT IMAGE 1 ONLY: it is the existing artwork to repair. Image 2 is the first STYLE REFERENCE; '
-                               'image 3 is the second STYLE REFERENCE. Preserve composition, subject count, scriptural meaning, '
-                               'anatomy and all successful areas. Do not generate a different scene. Correct only this defect: ' +
-                               correction.strip())
-                request['prompt'] = instruction + '\n\n' + request['prompt'] + '\n\nThe local edit and preservation instructions above take priority over instructions to create a new composition.'
-            save_job(directory / f'{current}-request.json', request)
-        updated = load_job(job_path)
-        updated['prepared'] = prepared_record(job_path, updated, directory, prepared['extended_message'])
-        updated['history'][-1] = dict(action='prepare', **updated['prepared'])
-        request_path = directory / f'{label}-request.json'
-        updated['history'].append(dict(action='refine', label=label, correction=correction,
-                                       context_hash=context_hash(job), source=candidate['path'],
-                                       request=str(request_path.relative_to(job_path.parent)), at=timestamp()))
-        save_job(job_path, updated)
-    except BaseException:
-        save_job(job_path, job)
-        shutil.rmtree(directory)
-        raise
-    return request_path
 
 
 def register_candidate(job_path: Path, label: str, image: Path, prompt: str,
@@ -621,7 +559,7 @@ def main() -> int:
     init.add_argument('--root', type=Path, default=Path('output'))
     init.add_argument('--id', default='gospel')
     init.add_argument('--kind', choices=['gospel', 'occasion'], default='gospel')
-    for name in ('check', 'status', 'evidence', 'prepare', 'refine', 'candidate', 'select', 'preview', 'rendered', 'approve', 'export'):
+    for name in ('check', 'status', 'evidence', 'prepare', 'candidate', 'select', 'preview', 'rendered', 'approve', 'export'):
         command = sub.add_parser(name)
         command.add_argument('job', type=Path)
         if name == 'evidence':
@@ -630,9 +568,6 @@ def main() -> int:
             command.add_argument('content', type=Path)
             command.add_argument('scenes', type=Path)
             command.add_argument('--extended-message')
-        elif name == 'refine':
-            command.add_argument('label', choices=list('ABC'))
-            command.add_argument('--correction', required=True)
         elif name == 'candidate':
             command.add_argument('label', choices=list('ABC'))
             command.add_argument('image', type=Path)
@@ -683,8 +618,6 @@ def main() -> int:
             print(prepare(path, json.loads(args.content.read_text(encoding='utf-8')),
                           json.loads(args.scenes.read_text(encoding='utf-8')),
                           extended_message=args.extended_message))
-        elif args.command == 'refine':
-            print(refine(path, args.label, args.correction))
         elif args.command == 'candidate':
             prompt = (json.loads(args.request_file.read_text(encoding='utf-8'))['prompt'] if args.request_file else
                       args.prompt_file.read_text(encoding='utf-8'))
