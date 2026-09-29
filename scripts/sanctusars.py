@@ -291,10 +291,12 @@ def render_preview(job_path: Path, image: Path, content: dict, logo: Path, font:
     image = inside(job_path, str(image.resolve()))
     if digest(image) != job['selection']['sha256']:
         raise ValueError('선택한 이미지와 다릅니다. 수정본은 후보 등록 후 선택해 주세요')
-    for key in ('scripture_quote', 'reference', 'meditation', 'prayer', 'question',
+    for key in ('scripture_quote', 'reference', 'meditation', 'prayer',
                 'threads_text', 'blog_text', 'card_text', 'card_kind'):
         if not isinstance(content.get(key), str) or not content[key].strip():
             raise ValueError('본문 누락: ' + key)
+    if not isinstance(content.get('question', ''), str):
+        raise ValueError('question은 생략하거나 문자열로 작성하세요')
     e = job['evidence']
     if normalized(content['scripture_quote']) != normalized(e['quotation']) or normalized(content['reference']) != normalized(e['gospel_reference']):
         raise ValueError('본문의 복음 인용·장절이 검증 자료와 다릅니다')

@@ -26,7 +26,7 @@ pre{white-space:pre-wrap;line-height:1.8;background:white;padding:24px}.status{p
   const link=document.createElement('a');link.href=p.sources[key];link.textContent=label;link.target='_blank';link.rel='noopener noreferrer';
   $('sources').append(link,document.createTextNode(' · '));
  }
- $('copy').textContent=`성경 인용: ${p.scripture_quote}\n${p.reference}\n\n묵상: ${p.meditation}\n\n기도: ${p.prayer}\n\n질문: ${p.question}`;
+ $('copy').textContent=`성경 인용: ${p.scripture_quote}\n${p.reference}\n\n묵상: ${p.meditation}\n\n기도: ${p.prayer}`+(p.question?.trim()?`\n\n질문: ${p.question}`:'');
  const img=src=>new Promise((resolve,reject)=>{const i=new Image();i.onload=()=>resolve(i);i.onerror=()=>reject(Error('이미지 로딩 실패'));i.src=src;});
  const fit=(ctx,i,x,y,w,h)=>{const s=Math.min(w/i.width,h/i.height);ctx.drawImage(i,x+(w-i.width*s)/2,y+(h-i.height*s)/2,i.width*s,i.height*s);};
  const wrap=(ctx,text,width)=>{const lines=[];for(const paragraph of text.split('\n')){let line='';for(const char of paragraph){if(ctx.measureText(line+char).width>width&&line){lines.push(line);line='';}line+=char;}lines.push(line);}return lines;};

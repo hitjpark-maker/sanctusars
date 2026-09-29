@@ -2,6 +2,7 @@
 import importlib.util
 import tempfile
 import unittest
+import json
 import struct
 import zlib
 import subprocess
@@ -198,6 +199,21 @@ class DatesAndJobs(unittest.TestCase):
         self.assertTrue((page.parent / 'threads.txt').is_file())
         with self.assertRaises(ValueError):
             self.app.export_approved(path)
+
+    def test_preview_allows_no_question_but_rejects_invalid_type(self):
+        path = self.prepared_job()
+        page = self.preview(path)
+        content = json.loads((page.parent / 'content.json').read_text())
+        image = path.parent / self.app.load_job(path)['candidates']['A']['path']
+        for value in ('', None):
+            if value is None:
+                content.pop('question', None)
+            else:
+                content['question'] = value
+            self.app.render_preview(path, image, content, path.parent / 'logo.png', path.parent / 'font.ttf')
+        content['question'] = 42
+        with self.assertRaises(ValueError):
+            self.app.render_preview(path, image, content, path.parent / 'logo.png', path.parent / 'font.ttf')
 
     def test_final_approval_export_and_tamper_detection(self):
         self.assertTrue(hasattr(self.app, 'render_preview'), 'Preview is missing')
