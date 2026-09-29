@@ -299,11 +299,15 @@ class DatesAndJobs(unittest.TestCase):
             self.assertIn(scenes()[label]['scene'], request['prompt'])
             self.assertEqual(len(request['referenced_image_paths']), 2)
             self.assertFalse(request['transparent_background'])
+            approved_labels = {'A': ('A', 'B'), 'B': ('B', 'A'), 'C': ('C', 'A')}[label]
+            for name, approved_label in zip(request['referenced_image_paths'], approved_labels):
+                approved = SCRIPT.parent.parent / 'examples/2026-10-02' / f'{approved_label}.png'
+                self.assertEqual(Path(name).read_bytes(), approved.read_bytes())
             for name in request['referenced_image_paths']:
                 reference = Path(name)
                 self.assertTrue(reference.is_absolute())
                 self.assertTrue(reference.is_relative_to(prepared))
-                original = SCRIPT.parent.parent / 'brand/references/v3' / reference.name
+                original = SCRIPT.parent.parent / 'brand/references/v4' / reference.name
                 self.assertEqual(reference.read_bytes(), original.read_bytes())
         self.assertEqual((prepared / 'threads.txt').read_text().strip(), content()['threads_text'])
         self.assertEqual((prepared / 'blog.txt').read_bytes(), (prepared / 'threads.txt').read_bytes())

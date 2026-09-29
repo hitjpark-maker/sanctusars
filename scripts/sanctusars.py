@@ -251,7 +251,7 @@ def prepare(job_path: Path, content: dict, scenes: dict, *, extended_message: st
             raise ValueError('후보마다 scene과 scripture_relation 두 항목만 작성하세요')
     brand = Path(__file__).resolve().parents[1] / 'brand'
     config_path = brand / 'generation.json'
-    manifest_path = brand / 'references/v3/manifest.json'
+    manifest_path = brand / 'references/v4/manifest.json'
     config = json.loads(config_path.read_text(encoding='utf-8'))
     manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
     if config.get('version') != '2' or set(config.get('profiles', {})) != set('ABC') or not config.get('common_prompt', '').strip():
