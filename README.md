@@ -16,7 +16,9 @@ Codex에서 사용하는 **SanctusArs 전용 제작 프로젝트**다. 공식 �
 3. Codex에 **웹 조회와 내장 이미지 생성 도구**가 제공되어야 한다. 생성 도구가 없으면 시작 시 안내하고 멈춘다. 저장소 복제만으로 기능 접근 권한이 생기지는 않는다. API 키·외부 AI 대체 경로는 없다.
 4. 다음처럼 요청한다.
 
-> AGENTS.md를 읽고 2026-10-01의 복음 포스팅을 만들어줘. 확정 스타일 참조를 보고 Threads·블로그 글과 실제 그림 세 장을 함께 보여줘.
+> 오늘 복음 포스팅 만들어줘.
+
+**사용자는 날짜만 요청하면 된다.** 날짜를 지정하려면 “2026년 10월 1일 복음 포스팅 만들어줘”라고 한다. Codex가 공식 복음 확인, 짧은 글 작성, 고정 생성 입력 준비, 실제 이미지 세 장 생성과 검토를 진행한다. 사용자가 프롬프트나 참조 파일을 골라 전달할 필요는 없다.
 
 **기본은 복음 포스팅 한 건과 그림 세 장**이다. 전례일은 매번 확인하되 축일 특별 포스팅은 요청받을 때만 별도로 세 장을 만든다. [글과 그림 예시](examples/2026-09-29/README.md)에서 기준을 볼 수 있다.
 
@@ -60,13 +62,18 @@ python3 scripts/sanctusars.py status output/2026-10-01/gospel/job.json
 `templates/evidence.json`을 실제 조회 결과로 채운 뒤 등록한다. 빈 값과 모순은 차단된다. 증거를 수정하면 시안의 검증 문맥도 무효화되므로 다시 검토·생성해야 한다.
 
 ```sh
-python3 scripts/sanctusars.py candidate job.json A generated-a.png --prompt-file prompt-a.txt
-# B, C도 각각 내장 이미지 도구로 생성한 실제 파일로 등록
+python3 scripts/sanctusars.py prepare job.json content.json scenes.json
+# 출력된 prepared/v-N의 A/B/C-request.json을 Codex가 내장 이미지 도구에 그대로 전달
+python3 scripts/sanctusars.py candidate job.json A generated-a.png --request-file prepared/v-N/A-request.json
+# B, C도 실제 생성한 뒤 해당 request 파일로 등록
+# 검토에서 명백한 결함을 발견한 후보만 원본을 유지하며 한 차례 보정
+python3 scripts/sanctusars.py refine job.json A --correction '구도는 유지하고 흰 공간의 반복 질감을 정리'
+# 반환된 A-request.json으로 실제 편집 후 새 candidate 등록
 python3 scripts/sanctusars.py select job.json B --message '사용자의 실제 선택 메시지'
 python3 scripts/sanctusars.py preview job.json content.json --logo brand/logo.png --font brand/font.otf
 ```
 
-`templates/content.json`을 채운다. `card_kind=scripture`이면 검증된 복음 발췌만, `meditation`이면 창작 묵상 문구를 넣는다. 최종 미리보기 HTML에는 글꼴·이미지가 내장되어 외부 서버에 보내지 않는다. 최신 브라우저에서 열어 두 다운로드 버튼으로 **1080×1350 PNG**를 받는다. 렌더링 오류가 표시되면 먼저 해결한다.
+`templates/content.json`과 `templates/scenes.json`은 Codex가 채운다. prepare는 글 길이·공통 본문·인용 표기를 검사하고, `brand/generation.json`의 고정 지시와 확정 참조를 결합한다. 준비 폴더에는 실제 도구 입력, 글, 참조 사본을 보존한다. 신규 제작은 준비 요청 없이 후보를 등록할 수 없다. 이 명령이 이미지를 생성하는 것은 아니며 실제 내장 도구 호출은 Codex가 담당한다. `card_kind=scripture`이면 검증된 복음 발췌만, `meditation`이면 창작 묵상 문구를 넣는다. 최종 미리보기 HTML에는 글꼴·이미지가 내장되어 외부 서버에 보내지 않는다. 최신 브라우저에서 열어 두 다운로드 버튼으로 **1080×1350 PNG**를 받는다. 렌더링 오류가 표시되면 먼저 해결한다.
 
 ```sh
 python3 scripts/sanctusars.py rendered job.json artwork.png card.png --review '한글·로고·잘림·원본 일치 실제 확인'
@@ -93,7 +100,7 @@ python3 -m unittest discover -s tests -v
 
 이미지 생성은 이미지가 없는 유사 작업보다 포함 사용량을 평균 3배에서 5배 빠르게 소모할 수 있다. 기본 하루 세 장이면 28일은 84장, 30일은 90장, 31일은 93장이다. 특별 포스팅과 수정 생성은 여기에 추가된다. 이는 필요한 이미지 수이지 Plus가 보장하는 월간 제공량이 아니다. **월 20달러 안에서 한 달 내내 이 작업량을 소화할 수 있는지는 미검증이다.** 실제 한도는 계정에서 확인한다. 한도에 닿으면 진행 상태를 보존하고 멈춘다. 외부 API 호출, 추가 결제, 품질을 낮추는 모델 변경을 자동으로 하지 않는다.
 
-**재현 실패 보고:** 다른 사용자의 2026-10-01 제작에서 글 분량과 그림 스타일이 기준에서 벗어났다. 초기 기준과 최신 기준의 혼재를 제거하고 실제 참조 입력·비교 검토를 필수 절차로 수정했다. 수정된 절차로 다른 계정에서 재생성한 결과는 아직 검증하지 않았다. 코드 테스트 통과를 화풍 재현 성공으로 해석하지 않는다.
+**재현 실패와 수정:** 다른 사용자 환경에서 글 분량과 그림 스타일이 기준을 벗어났다. 지침만 보강한 뒤에도 반복되어, 생성 입력을 실행 모델이 매번 새로 쓰던 경로를 prepare로 교체했다. 고정 프롬프트·참조 조합과 짧은 공통 본문 검사는 코드에서 처리한다. 생성 모델의 출력 변동이나 미적 품질까지 결정적으로 보장하는 기능은 아니다. 실제 검증 범위는 구현 기록에 명시하며 코드 테스트와 화풍 재현을 구분한다.
 
 현재는 공식 문서로 기능 지원을 확인한 단계다. 별도의 Plus 계정에서 새로 복제한 저장소만으로 제작하는 재현성 시험은 아직 수행하지 않았다. 실사용 검증에서는 기존 대화 없이 참조 이미지·지침만 읽고 같은 날짜 한 건과 다른 날짜 한 건을 제작하여 글과 복음의 일치, 화풍, 얼굴·손, 수정 횟수와 사용량을 비교해야 한다. 사용 가능 여부, 일관된 품질, 비용 내 지속 운영을 각각 확인한다.
 

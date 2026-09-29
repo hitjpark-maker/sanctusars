@@ -1,26 +1,11 @@
-# 새 이미지 생성 지시문
+# 생성 입력 작성
 
-이 양식을 그날의 검증된 내용으로 완성한다. 괄호를 남기지 않는다. 실제 내장 이미지 도구에 두 참조 이미지를 입력하고, 사용한 전체 지시와 이미지 입력을 후보별 request.json에 기록한다. 아래는 영문 지시문 틀이며 한국어로 구체화해도 된다.
+이제 전체 프롬프트를 매일 새로 쓰지 않는다. 고정 지시는 `brand/generation.json`에서 읽어 prepare가 조립한다.
 
-Create one new contemporary sacred painting, portrait 4:5, without text, logos, borders or a reserved text area.
+1. 공식 복음을 확인하고 `templates/content.json`에 짧은 본문을 작성한다.
+2. `templates/scenes.json`의 A/B/C 각각에 `scene`과 `scripture_relation`을 작성한다. 인물·행동·구도와 본문의 연결만 구체화하며 화풍과 질감 지시는 넣지 않는다. 원문에 있는 사실과 회화적 해석을 구분한다.
+3. `python3 scripts/sanctusars.py prepare job.json content.json scenes.json`을 실행한다.
+4. 출력된 준비 폴더의 실제 참조 이미지를 열어 본다. 각 request.json은 내장 imagegen의 입력 객체다. prompt, referenced_image_paths, transparent_background를 그대로 전달한다. 요약·추가·재해석하지 않는다.
+5. 실제 이미지가 나온 후 해당 request 파일로 candidate에 등록한다.
 
-REFERENCE ROLES
-Use the attached SanctusArs references for pictorial language only. Reference 1 supplies the contrast between broad quiet color planes and localized fine detail. Reference 2 supplies the relationship between observer, subject and incomplete space. Do not reproduce their people, fig tree, wings, swords, setting or exact composition.
-
-SCRIPTURE AND INTERPRETATION
-[Verified date, Gospel passage, exact short quotation and one core verb or relationship. Separate biblical facts from the proposed pictorial interpretation.]
-
-NEW COMPOSITION
-[Who or what is present; action; viewpoint; near/far arrangement; focal point; deliberate crop or concealment. State what the observer's position has to do with the quotation.]
-[Candidate A/B/C's distinct concept. Do not merely zoom or reframe another candidate.]
-
-MATERIAL AND ABSTRACTION
-[Name the largest quiet color field and its location. Name the small focal area with finely observed living detail. Name the few peripheral edges carrying coarse paint.]
-[Name the background or clothing forms that become incomplete, flattened or spatially ambiguous. Keep visible hands and faces anatomically intact.]
-Use transparent watercolor layers or thin oil glazing with a few deliberate thick marks. Keep large areas calm, not filled with repeated tiny strokes. Let mystery arise from incomplete space, perception and light rather than decoration.
-
-COLOR AND HUMAN PRESENCE
-[Small palette appropriate to this scene, not the automatic navy-and-golden-sunset formula. Soft natural skin temperature, readable eyes, unforced gestures.]
-
-AVOID
-All-over impasto or mosaic brushwork; dense scenic exposition; old-master varnish or sepia; generic golden biblical illustration; texture filters; cartoon or storybook figures; colored pencil; corpse-like blue skin; hollow eye sockets; melting anatomy; gratuitous fantasy beams or halos.
+A/B/C는 의미가 다른 장면이어야 한다. ‘다른 앵글’ 같은 빈 지시를 쓰지 않는다. 성공 후보는 유지한다. 표면·인체 결함은 refine으로 해당 원본만 편집한다. 장면 자체를 바꿀 때는 수정할 후보의 scene만 바꾸어 재준비한다. 요청 파일의 존재가 이미지 생성이나 품질 통과를 뜻하지 않는다.

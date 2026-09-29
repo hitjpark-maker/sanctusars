@@ -1,5 +1,6 @@
 """Synthetic evidence and images: never proof of a real liturgical review."""
 import importlib.util
+import os
 import tempfile
 import unittest
 import json
@@ -21,12 +22,28 @@ def evidence():
                 calendar_url='https://missa.cbck.or.kr/', calendar_date='2026-09-28',
                 calendar_day='연중 제26주간 월요일', mass_form='당일 미사',
                 gospel_reference='루카 9,46-50', gospel_section='복음',
+                quotation_reference='루카 9,50',
                 quotation='너희를 반대하지 않는 이는 너희를 지지하는 사람이다.',
                 gospel_excerpt='막지 마라. 너희를 반대하지 않는 이는 너희를 지지하는 사람이다.',
                 crosscheck_url='https://maria.catholic.or.kr/mi_pr/missa/',
                 crosscheck_date='2026-09-28', crosscheck_mass_form='당일 미사',
                 crosscheck_reference='루카 9,46-50', occasions=[], unresolved_choices=[],
                 review_note='SYNTHETIC TEST DATA — not a live source verification')
+
+
+def content():
+    quote = evidence()['quotation']
+    body = f'“{quote}”\n루카 9,50\n\n낯선 이를 먼저 판단하지 않게 해 주세요.\n\n2026.09.28'
+    return dict(scripture_quote=quote, reference='루카 9,46-50', display_reference='루카 9,50',
+                meditation='낯선 이를 먼저 판단하지 않게 해 주세요.', prayer='함께하게 하소서.',
+                threads_text=body, blog_text=body, card_text='작은 사람을 맞이하는 마음',
+                card_kind='meditation')
+
+
+def scenes():
+    return {label: dict(scene=f'Synthetic composition {label}',
+                        scripture_relation='Synthetic Gospel viewpoint, not production evidence')
+            for label in 'ABC'}
 
 
 def png(path, color, width=2, height=2):
@@ -120,12 +137,18 @@ class DatesAndJobs(unittest.TestCase):
         job = self.app.load_job(path)
         job['evidence'] = evidence()
         self.app.save_job(path, job)
+        self.app.prepare(path, content(), scenes())
         return path
+
+    def register(self, path, label, image):
+        request_path = path.parent / self.app.load_job(path)['prepared']['directory'] / f'{label}-request.json'
+        prompt = json.loads(request_path.read_text())['prompt']
+        self.app.register_candidate(path, label, image, prompt, request_path=request_path)
 
     def candidates(self, path):
         for i, label in enumerate('ABC'):
             image = png(path.parent / f'input-{label}.png', (100 + i, 40, 20))
-            self.app.register_candidate(path, label, image, 'Synthetic test prompt')
+            self.register(path, label, image)
 
     def test_candidates_and_selection_have_required_gates(self):
         self.assertTrue(hasattr(self.app, 'register_candidate'), 'Candidate gate is missing')
@@ -138,13 +161,14 @@ class DatesAndJobs(unittest.TestCase):
         self.app.select_candidate(path, 'B', 'B 선택')
         self.assertEqual(self.app.load_job(path)['selection']['label'], 'B')
         original = self.app.load_job(path)['candidates']['B']['path']
+        original_prompt = self.app.load_job(path)['candidates']['B']['prompt']
         new_image = png(path.parent / 'new-b.png', (1, 2, 3))
-        self.app.register_candidate(path, 'B', new_image, 'Revised prompt')
+        self.register(path, 'B', new_image)
         self.assertTrue((path.parent / original).is_file())
         revised = self.app.load_job(path)
         self.assertIsNone(revised['selection'])
         previous = [h for h in revised['history'] if h['action'] == 'candidate' and h['path'] == original][0]
-        self.assertEqual(previous.get('prompt'), 'Synthetic test prompt')
+        self.assertEqual(previous.get('prompt'), original_prompt)
         self.assertTrue(previous.get('sha256'))
         self.assertTrue(previous.get('context_hash'))
 
@@ -164,14 +188,14 @@ class DatesAndJobs(unittest.TestCase):
         self.assertTrue(hasattr(self.app, 'register_candidate'), 'Candidate gate is missing')
         path = self.prepared_job()
         image = png(path.parent / 'input.png', (1, 2, 3))
-        self.app.register_candidate(path, 'A', image, 'Test')
+        self.register(path, 'A', image)
         with self.assertRaises(ValueError):
-            self.app.register_candidate(path, 'B', image, 'Same bytes')
+            self.register(path, 'B', image)
         job = self.app.load_job(path)
         job['evidence']['body_date'] = '2026-09-27'
         self.app.save_job(path, job)
         with self.assertRaises(ValueError):
-            self.app.register_candidate(path, 'C', image, 'Wrong day')
+            self.register(path, 'C', image)
 
     def preview(self, path):
         self.candidates(path)
@@ -181,12 +205,10 @@ class DatesAndJobs(unittest.TestCase):
         logo = png(path.parent / 'logo.png', (20, 30, 40))
         font = path.parent / 'font.ttf'
         font.write_bytes(b'\x00\x01\x00\x00' + b'FAKE FONT FOR UNIT TESTS ONLY')
-        content = dict(scripture_quote=evidence()['quotation'], reference='루카 9,46-50',
-                       meditation='나를 <script>alert(1)</script> 있는 그대로',
-                       prayer='함께하게 하소서.', question='오늘 누구를 떠올렸나요?',
-                       threads_text='Threads 테스트', blog_text='블로그 테스트',
-                       card_text='작은 사람을 맞이하는 마음', card_kind='meditation')
-        return self.app.render_preview(path, image, content, logo, font)
+        copy = content()
+        copy['meditation'] = '나를 <script>alert(1)</script> 있는 그대로'
+        copy['question'] = '오늘 누구를 떠올렸나요?'
+        return self.app.render_preview(path, image, copy, logo, font)
 
     def test_render_escapes_text_and_requires_correct_scripture(self):
         self.assertTrue(hasattr(self.app, 'render_preview'), 'Preview is missing')
@@ -233,13 +255,13 @@ class DatesAndJobs(unittest.TestCase):
         self.assertTrue(previous_approval.get('approval', {}).get('files'))
         destination = self.app.export_approved(path)
         self.assertTrue((destination / 'card.png').is_file())
-        self.assertEqual((destination / 'threads.txt').read_text(), 'Threads 테스트\n')
+        self.assertEqual((destination / 'threads.txt').read_text(), content()['threads_text'] + '\n')
 
         (page.parent / 'threads.txt').write_text('수정됨')
         self.assertTrue(self.app.verify_approval(path))
         with self.assertRaises(ValueError):
             self.app.export_approved(path)
-        self.assertEqual((destination / 'threads.txt').read_text(), 'Threads 테스트\n')
+        self.assertEqual((destination / 'threads.txt').read_text(), content()['threads_text'] + '\n')
 
     def test_cli_init_and_check_report_blocked_and_invalid_input(self):
         self.root.mkdir()
@@ -259,6 +281,255 @@ class DatesAndJobs(unittest.TestCase):
         job['evidence'] = evidence()
         job['evidence']['occasions'] = None
         self.assertTrue(self.app.validate_evidence(job))
+
+    def test_prepare_creates_portable_native_requests_and_preserves_previous_version(self):
+        self.assertTrue(callable(getattr(self.app, 'prepare', None)), 'Generation preparation is missing')
+        path = self.prepared_job()
+        previous_cwd = Path.cwd()
+        try:
+            os.chdir(self.temp.name)
+            prepared = self.app.prepare(path, content(), scenes())
+        finally:
+            os.chdir(previous_cwd)
+        request_bytes = (prepared / 'A-request.json').read_bytes()
+        for label in 'ABC':
+            request = json.loads((prepared / f'{label}-request.json').read_text())
+            self.assertEqual(set(request), {'prompt', 'referenced_image_paths', 'transparent_background'})
+            self.assertIn(evidence()['quotation'], request['prompt'])
+            self.assertIn(scenes()[label]['scene'], request['prompt'])
+            self.assertEqual(len(request['referenced_image_paths']), 2)
+            self.assertFalse(request['transparent_background'])
+            for name in request['referenced_image_paths']:
+                reference = Path(name)
+                self.assertTrue(reference.is_absolute())
+                self.assertTrue(reference.is_relative_to(prepared))
+                original = SCRIPT.parent.parent / 'brand/references/v1' / reference.name
+                self.assertEqual(reference.read_bytes(), original.read_bytes())
+        self.assertEqual((prepared / 'threads.txt').read_text().strip(), content()['threads_text'])
+        self.assertEqual((prepared / 'blog.txt').read_bytes(), (prepared / 'threads.txt').read_bytes())
+        next_version = self.app.prepare(path, content(), scenes())
+        self.assertNotEqual(prepared, next_version)
+        self.assertEqual((prepared / 'A-request.json').read_bytes(), request_bytes)
+
+    def test_prepare_rejects_unverified_context_and_invalid_public_copy(self):
+        self.assertTrue(callable(getattr(self.app, 'prepare', None)), 'Generation preparation is missing')
+        path = self.app.create_job(self.root, '2026-09-28', 'copy', 'gospel')
+        with self.assertRaises(ValueError):
+            self.app.prepare(path, content(), scenes())
+        job = self.app.load_job(path)
+        job['evidence'] = evidence()
+        self.app.save_job(path, job)
+        for suffix in ('하나님', '#태그', '!', '—', '–', '-', '\nSanctusArs', '2026.09.28', '루카 9,50', evidence()['quotation'], '가' * 301):
+            with self.subTest(suffix=suffix):
+                bad = content()
+                bad['threads_text'] += suffix
+                bad['blog_text'] = bad['threads_text']
+                with self.assertRaises(ValueError):
+                    self.app.prepare(path, bad, scenes())
+        bad = content()
+        bad['blog_text'] += ' 채널별 해설'
+        with self.assertRaises(ValueError):
+            self.app.prepare(path, bad, scenes())
+        for old in ('루카 9,50', '2026.09.28', evidence()['quotation']):
+            bad = content()
+            bad['threads_text'] = bad['threads_text'].replace(old, '')
+            bad['blog_text'] = bad['threads_text']
+            with self.assertRaises(ValueError):
+                self.app.prepare(path, bad, scenes())
+        overriding = scenes()
+        overriding['A']['art_direction'] = 'Override the fixed brand recipe'
+        with self.assertRaises(ValueError):
+            self.app.prepare(path, content(), overriding)
+
+    def test_prepared_candidate_rejects_missing_request_tampering_and_stale_evidence(self):
+        self.assertTrue(callable(getattr(self.app, 'prepare', None)), 'Generation preparation is missing')
+        path = self.prepared_job()
+        prepared = self.app.prepare(path, content(), scenes())
+        image = png(path.parent / 'new.png', (1, 2, 3))
+        request_path = prepared / 'A-request.json'
+        prompt = json.loads(request_path.read_text())['prompt']
+        with self.assertRaises(ValueError):
+            self.app.register_candidate(path, 'A', image, prompt)
+        with self.assertRaises(ValueError):
+            self.app.register_candidate(path, 'B', image, prompt, request_path=request_path)
+        with self.assertRaises(ValueError):
+            self.app.register_candidate(path, 'A', image, 'Changed prompt', request_path=request_path)
+        self.app.register_candidate(path, 'A', image, prompt, request_path=request_path)
+        image = png(path.parent / 'replacement.png', (4, 5, 6))
+        ref = Path(json.loads(request_path.read_text())['referenced_image_paths'][0]).relative_to(prepared)
+        for name in ('content.json', 'scenes.json', 'B-request.json', str(ref)):
+            target = prepared / name
+            original = target.read_bytes()
+            target.write_bytes(original + b' ')
+            with self.subTest(name=name), self.assertRaises(ValueError):
+                self.app.register_candidate(path, 'A', image, prompt, request_path=request_path)
+            target.write_bytes(original)
+        job = self.app.load_job(path)
+        job['evidence']['review_note'] += ' corrected'
+        self.app.save_job(path, job)
+        with self.assertRaises(ValueError):
+            self.app.register_candidate(path, 'A', image, prompt, request_path=request_path)
+
+    def test_extended_copy_requires_explicit_recorded_message(self):
+        self.assertTrue(callable(getattr(self.app, 'prepare', None)), 'Generation preparation is missing')
+        path = self.prepared_job()
+        longer = content()
+        longer['threads_text'] += '가' * 301
+        longer['blog_text'] = longer['threads_text']
+        with self.assertRaises(ValueError):
+            self.app.prepare(path, longer, scenes(), extended_message='')
+        self.app.prepare(path, longer, scenes(), extended_message='긴 본문 요청 (synthetic test)')
+        self.assertEqual(self.app.load_job(path)['prepared']['extended_message'], '긴 본문 요청 (synthetic test)')
+
+    def test_display_reference_requires_verified_quotation_reference(self):
+        path = self.prepared_job()
+        wrong = content()
+        wrong['display_reference'] = '창세 1,1'
+        wrong['threads_text'] = wrong['threads_text'].replace('루카 9,50', '창세 1,1')
+        wrong['blog_text'] = wrong['threads_text']
+        with self.assertRaises(ValueError):
+            self.app.prepare(path, wrong, scenes())
+
+    def test_occasion_copy_does_not_require_gospel_quote(self):
+        path = self.prepared_job()
+        job = self.app.load_job(path)
+        job['kind'] = 'occasion'
+        occasion = dict(name='테스트 성인', rank='선택 기념일', date='2026-09-28',
+                        source_url='https://missa.cbck.or.kr/DailyMissa/20260928',
+                        biography_url='https://www.vatican.va/', meaning='Synthetic fixture',
+                        symbols='검증된 상징만 사용', choice_note='합성 선택')
+        job['evidence']['occasion'] = occasion
+        job['evidence']['occasions'] = [occasion]
+        self.app.save_job(path, job)
+        copy = content()
+        copy['threads_text'] = '오늘 9월 28일은 합성 테스트 기념일입니다. 축일을 맞으신 분들께 축하를 전합니다.'
+        copy['blog_text'] = copy['threads_text']
+        prepared = self.app.prepare(path, copy, scenes())
+        self.assertEqual(json.loads((prepared / 'content.json').read_text())['threads_text'], copy['threads_text'])
+        self.assertIn('테스트 성인', json.loads((prepared / 'A-request.json').read_text())['prompt'])
+
+    def test_reprepare_preserves_unchanged_candidates_and_blocks_changed_scene(self):
+        path = self.prepared_job()
+        self.candidates(path)
+        self.app.prepare(path, content(), scenes())
+        self.app.select_candidate(path, 'A', '합성 선택')
+        changed = scenes()
+        changed['B']['scene'] = 'A different synthetic viewpoint'
+        self.app.prepare(path, content(), changed)
+        with self.assertRaises(ValueError):
+            self.app.select_candidate(path, 'A', '합성 선택')
+        self.register(path, 'B', png(path.parent / 'new-b.png', (1, 2, 3)))
+        self.app.select_candidate(path, 'A', '합성 선택')
+
+    def test_legacy_jobs_resume_but_new_jobs_require_preparation(self):
+        path = self.app.create_job(self.root, '2026-09-28', 'legacy', 'gospel')
+        job = self.app.load_job(path)
+        job['evidence'] = evidence()
+        self.app.save_job(path, job)
+        image = png(path.parent / 'legacy.png', (3, 4, 5))
+        with self.assertRaises(ValueError):
+            self.app.register_candidate(path, 'A', image, 'Legacy prompt')
+        job.pop('generation_contract')
+        self.app.save_job(path, job)
+        self.app.register_candidate(path, 'A', image, 'Legacy prompt')
+        self.assertEqual(self.app.load_job(path)['candidates']['A']['prompt'], 'Legacy prompt')
+
+    def test_cli_prepares_and_registers_native_request_without_prompt_retyping(self):
+        path = self.prepared_job()
+        copy_file = path.parent / 'source content.json'
+        scenes_file = path.parent / 'source scenes.json'
+        copy_file.write_text(json.dumps(content(), ensure_ascii=False))
+        scenes_file.write_text(json.dumps(scenes(), ensure_ascii=False))
+        command = [sys.executable, str(SCRIPT), 'prepare', str(path), str(copy_file), str(scenes_file)]
+        result = subprocess.run(command, capture_output=True, text=True, cwd=self.temp.name)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        prepared = Path(result.stdout.strip())
+        self.assertTrue(prepared.is_absolute())
+        image = png(path.parent / 'cli image.png', (4, 5, 6))
+        candidate = subprocess.run([sys.executable, str(SCRIPT), 'candidate', str(path), 'A', str(image),
+                                    '--request-file', str(prepared / 'A-request.json')],
+                                   capture_output=True, text=True, cwd=self.temp.name)
+        self.assertEqual(candidate.returncode, 0, candidate.stderr)
+        self.assertEqual(set(self.app.load_job(path)['candidates']), {'A'})
+
+    def test_full_reference_can_be_written_without_a_hyphen(self):
+        path = self.prepared_job()
+        copy = content()
+        copy['display_reference'] = '루카 9장 46절부터 50절'
+        copy['threads_text'] = copy['threads_text'].replace('루카 9,50', copy['display_reference'])
+        copy['blog_text'] = copy['threads_text']
+        self.app.prepare(path, copy, scenes())
+
+    def test_explicit_long_blog_request_validates_both_channel_bodies(self):
+        path = self.prepared_job()
+        copy = content()
+        copy['blog_text'] += '\n' + '긴 설명. ' * 100
+        with self.assertRaises(ValueError):
+            self.app.prepare(path, copy, scenes())
+        self.app.prepare(path, copy, scenes(), extended_message='블로그는 긴 설명으로 (합성 요청)')
+        for key in ('threads_text', 'blog_text'):
+            invalid = deepcopy(copy)
+            invalid[key] += '!'
+            with self.subTest(channel=key), self.assertRaises(ValueError):
+                self.app.prepare(path, invalid, scenes(), extended_message='블로그는 긴 설명으로 (합성 요청)')
+
+    def test_verified_scripture_punctuation_is_preserved_but_not_added_to_prose(self):
+        path = self.prepared_job()
+        job = self.app.load_job(path)
+        quote = job['evidence']['quotation']
+        job['evidence']['quotation'] = quote + '!'
+        job['evidence']['gospel_excerpt'] += '!'
+        self.app.save_job(path, job)
+        copy = content()
+        copy['scripture_quote'] += '!'
+        for key in ('threads_text', 'blog_text'):
+            copy[key] = copy[key].replace(quote, quote + '!')
+        self.app.prepare(path, copy, scenes())
+        copy['threads_text'] += '강조!'
+        copy['blog_text'] = copy['threads_text']
+        with self.assertRaises(ValueError):
+            self.app.prepare(path, copy, scenes())
+
+    def test_refine_preserves_other_candidates_and_allows_one_correction_per_label(self):
+        self.assertTrue(callable(getattr(self.app, 'refine', None)), 'Local correction preparation is missing')
+        path = self.prepared_job()
+        self.candidates(path)
+        before = self.app.load_job(path)
+        refined = self.app.refine(path, 'A', 'Synthetic defect: simplify the far wall only')
+        request = json.loads(refined.read_text())
+        self.assertEqual(len(request['referenced_image_paths']), 3)
+        self.assertIn('EDIT IMAGE 1', request['prompt'])
+        original = path.parent / before['candidates']['A']['path']
+        self.assertEqual(Path(request['referenced_image_paths'][0]).read_bytes(), original.read_bytes())
+        after = self.app.load_job(path)
+        self.assertEqual(after['prepared']['fingerprints']['B'], before['prepared']['fingerprints']['B'])
+        self.assertEqual(after['prepared']['fingerprints']['C'], before['prepared']['fingerprints']['C'])
+        with self.assertRaises(ValueError):
+            self.app.select_candidate(path, 'B', '합성 선택')
+        self.register(path, 'A', png(path.parent / 'fixed-a.png', (9, 8, 7)))
+        self.app.select_candidate(path, 'B', '합성 선택')
+        with self.assertRaises(ValueError):
+            self.app.refine(path, 'A', 'Again')
+        fixed_a = self.app.load_job(path)['prepared']['fingerprints']['A']
+        self.app.refine(path, 'C', 'Synthetic defect: simplify the lower edge only')
+        self.assertEqual(self.app.load_job(path)['prepared']['fingerprints']['A'], fixed_a)
+        self.register(path, 'C', png(path.parent / 'fixed-c.png', (7, 8, 9)))
+        self.app.select_candidate(path, 'B', '합성 선택')
+
+    def test_refine_rejects_stale_candidate_and_changed_snapshot(self):
+        self.assertTrue(callable(getattr(self.app, 'refine', None)), 'Local correction preparation is missing')
+        path = self.prepared_job()
+        self.candidates(path)
+        changed = scenes()
+        changed['A']['scene'] += ' changed'
+        self.app.prepare(path, content(), changed)
+        with self.assertRaises(ValueError):
+            self.app.refine(path, 'A', 'A correction for an obsolete scene')
+        job = self.app.load_job(path)
+        request = path.parent / job['prepared']['directory'] / 'B-request.json'
+        request.write_text(request.read_text() + ' ')
+        with self.assertRaises(ValueError):
+            self.app.refine(path, 'B', 'A correction using changed input')
 
 
 

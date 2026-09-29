@@ -16,6 +16,9 @@
   "crosscheck_mass_form": "",
   "crosscheck_reference": "",
   "occasions": [],
-  "unresolved_choices": ["실제 자료 조회 전"],
-  "review_note": ""
+  "unresolved_choices": [
+    "실제 자료 조회 전"
+  ],
+  "review_note": "",
+  "quotation_reference": ""
 }
