@@ -39,7 +39,7 @@ Codex에서 사용하는 **SanctusArs 전용 제작 프로젝트**다. 공식 �
 
 ## 카드에 필요한 자산
 
-- 기준 화풍: 사용자 확정 **v1**. `brand/style.md`와 `brand/references/v1/README.md`의 여섯 참조 이미지 사용. 초기 `brand/reference-b.png`는 탐색 이력이다.
+- 기준 화풍: 사용자 확정 **v1** 원본 여섯 장을 보존한다. 매 생성에는 `brand/generation.json`의 후보별 프로필이 선택한 두 장을 구도·공간감·색 관계의 참조로 사용하고, 인물·표면 묘사는 최신 회화 지시를 따른다. `brand/style.md`와 `brand/references/v1/README.md`에서 기준을 확인한다. 초기 `brand/reference-b.png`는 탐색 이력이다.
 - 공식 로고: 사용자가 제공하는 PNG/JPEG/WebP 원본. 임의 로고로 대체하지 않는다. SVG는 안전하게 래스터로 내보낸 공식 버전을 제공한다.
 - 한글 글꼴: 사용자 지정 **Pretendard(프리텐다드)**. 실제 파일과 사용·배포 조건을 준비한다. 지원 형식은 TTF/OTF/WOFF/WOFF2이며 본문은 실제 브라우저에서 확인해야 한다.
 
@@ -66,14 +66,16 @@ python3 scripts/sanctusars.py prepare job.json content.json scenes.json
 # 출력된 prepared/v-N의 A/B/C-request.json을 Codex가 내장 이미지 도구에 그대로 전달
 python3 scripts/sanctusars.py candidate job.json A generated-a.png --request-file prepared/v-N/A-request.json
 # B, C도 실제 생성한 뒤 해당 request 파일로 등록
-# 검토에서 명백한 결함을 발견한 후보만 원본을 유지하며 한 차례 보정
-python3 scripts/sanctusars.py refine job.json A --correction '구도는 유지하고 흰 공간의 반복 질감을 정리'
+# 좋은 구도와 화풍 안의 국소 결함에만 한 차례 보정
+python3 scripts/sanctusars.py refine job.json A --correction '구도와 인물은 유지하고 문틀 가장자리의 뒤틀림만 수정'
 # 반환된 A-request.json으로 실제 편집 후 새 candidate 등록
 python3 scripts/sanctusars.py select job.json B --message '사용자의 실제 선택 메시지'
 python3 scripts/sanctusars.py preview job.json content.json --logo brand/logo.png --font brand/font.otf
 ```
 
 `templates/content.json`과 `templates/scenes.json`은 Codex가 채운다. prepare는 글 길이·공통 본문·인용 표기를 검사하고, `brand/generation.json`의 고정 지시와 확정 참조를 결합한다. 준비 폴더에는 실제 도구 입력, 글, 참조 사본을 보존한다. 신규 제작은 준비 요청 없이 후보를 등록할 수 없다. 이 명령이 이미지를 생성하는 것은 아니며 실제 내장 도구 호출은 Codex가 담당한다. `card_kind=scripture`이면 검증된 복음 발췌만, `meditation`이면 창작 묵상 문구를 넣는다. 최종 미리보기 HTML에는 글꼴·이미지가 내장되어 외부 서버에 보내지 않는다. 최신 브라우저에서 열어 두 다운로드 버튼으로 **1080×1350 PNG**를 받는다. 렌더링 오류가 표시되면 먼저 해결한다.
+
+전체 화풍, 비늘 같은 반복 질감, 실사 인물과 배경의 부조화, 기본 구성이 실패했다면 refine으로 덧칠하지 않는다. Codex가 확정 기준 안에서 장면·시점·표현 설계를 다시 판단하고 필요한 scenes 항목을 수정한 뒤 prepare로 해당 후보를 처음부터 새로 생성한다. 이 요청에는 확정 참조 두 장만 들어가며 실패 원본과 오류 확대 캡처를 넣지 않는다. 후보별 자동 재작업은 새 생성 또는 국소 보정 한 차례 후 재검토한다. 결함이 남으면 공개하고, 이전 이미지와 성공 후보는 보존하며 확정 참조는 승인 없이 교체하지 않는다.
 
 ```sh
 python3 scripts/sanctusars.py rendered job.json artwork.png card.png --review '한글·로고·잘림·원본 일치 실제 확인'
