@@ -299,21 +299,42 @@ class DatesAndJobs(unittest.TestCase):
             self.assertIn(scenes()[label]['scene'], request['prompt'])
             self.assertEqual(len(request['referenced_image_paths']), 2)
             self.assertFalse(request['transparent_background'])
-            approved_labels = {'A': ('A', 'B'), 'B': ('B', 'A'), 'C': ('C', 'A')}[label]
-            for name, approved_label in zip(request['referenced_image_paths'], approved_labels):
-                approved = SCRIPT.parent.parent / 'examples/2026-10-02' / f'{approved_label}.png'
-                self.assertEqual(Path(name).read_bytes(), approved.read_bytes())
+            reference_names = {'A': ('wide.png', 'minimal.png'),
+                               'B': ('minimal.png', 'close.png'),
+                               'C': ('viewpoint.png', 'minimal.png')}[label]
+            self.assertEqual(tuple(Path(name).name for name in request['referenced_image_paths']), reference_names)
             for name in request['referenced_image_paths']:
                 reference = Path(name)
                 self.assertTrue(reference.is_absolute())
                 self.assertTrue(reference.is_relative_to(prepared))
-                original = SCRIPT.parent.parent / 'brand/references/v4' / reference.name
+                original = SCRIPT.parent.parent / 'brand/references/v5' / reference.name
                 self.assertEqual(reference.read_bytes(), original.read_bytes())
+        self.assertEqual((prepared / 'references/minimal.png').read_bytes(),
+                         (SCRIPT.parent.parent / 'examples/2026-10-06/B.png').read_bytes())
         self.assertEqual((prepared / 'threads.txt').read_text().strip(), content()['threads_text'])
         self.assertEqual((prepared / 'blog.txt').read_bytes(), (prepared / 'threads.txt').read_bytes())
         next_version = self.app.prepare(path, content(), scenes())
         self.assertNotEqual(prepared, next_version)
         self.assertEqual((prepared / 'A-request.json').read_bytes(), request_bytes)
+
+    def test_v5_default_and_legacy_v4_are_job_scoped(self):
+        path = self.prepared_job()
+        original = self.app.load_job(path)['prepared']['directory']
+        default_request = json.loads((path.parent / original / 'B-request.json').read_text())
+        self.assertIn('RADICAL MINIMUM', default_request['prompt'])
+        self.assertIn('quoted sentence', default_request['prompt'])
+        self.assertIn('Cobalt is not a signal of night', default_request['prompt'])
+        self.assertEqual(Path(default_request['referenced_image_paths'][0]).name, 'minimal.png')
+        prepared = self.app.prepare(path, content(), scenes(), style='v4')
+        request = json.loads((prepared / 'B-request.json').read_text())
+        self.assertIn('RADICAL MINIMUM', request['prompt'])
+        self.assertEqual(len(request['referenced_image_paths']), 2)
+        self.assertEqual(Path(request['referenced_image_paths'][0]).name, 'close.png')
+        self.assertEqual((prepared / 'generation.json').read_bytes(),
+                         (SCRIPT.parent.parent / 'brand/generation.json').read_bytes())
+        self.assertTrue((path.parent / original / 'generation.json').is_file())
+        with self.assertRaises(ValueError):
+            self.app.prepare(path, content(), scenes(), style='unknown')
 
     def test_prepare_rejects_unverified_context_and_invalid_public_copy(self):
         self.assertTrue(callable(getattr(self.app, 'prepare', None)), 'Generation preparation is missing')

@@ -1,0 +1,28 @@
+{
+  "version": "2",
+  "revision": "2026-10-06-simplified-modern-v5",
+  "common_prompt": "Create ONE entirely new 4:5 vertical SanctusArs artwork for the verified Catholic Gospel. The supplied images are visual references for contemporary composition, color relationships, selective surface treatment and the degree of omission only. Never copy their scene, arrangement, persons, faces, gestures, garments or symbols. The whole Gospel episode supplies context, but the short quoted sentence supplies the single visual idea. This image accompanies the short post: it need not retell the whole passage. At first glance one gaze, pause, gesture, distance or spatial relation should connect to the quotation; allow the viewer to infer everything else. All three candidates must simplify; if removing a figure, prop or wall leaves the quoted relation clear, remove it. A and C may still differ in viewpoint and scale, while B is the most radical minimum. Compose a singular contemporary sacred artwork from a few large asymmetrical, mostly smooth matte color fields, purposeful overlaps, one legible human anchor where needed, and substantial active space. Keep fine grain or haze only at a small meaningful transition, never as an all-over filter. Cobalt blue, deep plum, muted sage and ivory are a recognizable family, not four colors that must all appear each day. Use only the colors the scene needs; avoid purple dominance, orange warmth and cold monochrome. Cobalt is not a signal of night: in passages without a stated time, daylight and open-air brightness are welcome. Preserve a restrained sense of the sacred through withheld space, selective light and scale rather than halos, fantasy rays or explanatory symbols. Human forms share the same illustrated language as the space: hands and eyes remain coherent wherever visible, never photographic, faceless, distorted or toy-like. This is modern art with a Gospel anchor, not a full Bible-story diagram, vintage oil painting, textured canvas, picture book, stock digital illustration, vector icon or generic abstract poster. No heavy brushstrokes, impasto, paper fibers, grunge, repeated texture, text, logo, signature, border or reserved text area. Generate fresh from scratch; never edit an existing candidate.",
+  "profiles": {
+    "A": {
+      "direction": "A / WIDE BUT EDITED DOWN. Show the quoted relation from a wider position, not the full cast or chronology. Use small figures only if essential, with one striking interval between them and broad quiet color fields doing most of the work. Remove domestic inventory, extra actors and architecture that merely explains the story. This candidate may suggest daylight even when cobalt is present. Do not recreate any reference path, doorway or pose.",
+      "references": [
+        "wide.png",
+        "minimal.png"
+      ]
+    },
+    "B": {
+      "direction": "B / RADICAL MINIMUM. This must be the most dramatically simplified interpretation that still carries the quoted Gospel sentence. Use a close crop or near-abstract arrangement with one legible human anchor: a listening posture, a partial face, a restrained gesture or a small silhouette oriented toward an unseen presence. Keep two or three large quiet color fields and at most one small accent. Omit the room, table, utensils, supporting cast and explanatory props unless one is indispensable to this particular verse. Let the viewer complete the unseen encounter. Do not repeat the reference's Mary, Jesus, hand, dress or blue-plum divide; find a fresh form for today's words. Preserve the Gospel's emotional relation without becoming a generic abstract poster. No conventional portrait, hand reaching at camera or decorative detail.",
+      "references": [
+        "minimal.png",
+        "close.png"
+      ]
+    },
+    "C": {
+      "direction": "C / DISTINCT VIEWPOINT, EQUALLY SPARE. Place the viewer at a different physical or emotional position, perhaps from a threshold, beside a listener or from above. Let one occlusion, scale shift or cropped gesture reveal the quoted relation. Keep the image as edited down as A, with no tableau, period set or illustrative inventory. It must be a distinct interpretation of the quoted idea, not a recolor or crop of A or B. Do not recreate either reference's scene or figures.",
+      "references": [
+        "viewpoint.png",
+        "minimal.png"
+      ]
+    }
+  }
+}

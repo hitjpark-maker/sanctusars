@@ -1,0 +1,22 @@
+{
+  "version": "v5",
+  "status": "user_approved_style_direction",
+  "references": [
+    {
+      "image": "wide.png",
+      "sha256": "17548ebb4425cec56eb8196d7c44267abb5aa2bde432ebfd8d734f83907cc3f5"
+    },
+    {
+      "image": "viewpoint.png",
+      "sha256": "5882213537a3f17be14bd18d95b1131cd7e0604c0e05a985f7139561bab543f1"
+    },
+    {
+      "image": "close.png",
+      "sha256": "8f4e0fd86fb257442a50301f15980003628fd1256577173d87a00cfb701ae184"
+    },
+    {
+      "image": "minimal.png",
+      "sha256": "ad42c424ca86fd06a358b108edadccff8e29d0c3b9f37b4257d39935dd1cb176"
+    }
+  ]
+}
