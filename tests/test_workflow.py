@@ -335,6 +335,29 @@ class DatesAndJobs(unittest.TestCase):
                          (SCRIPT.parent.parent / 'brand/references/v5/generation.json').read_bytes())
         self.assertTrue((path.parent / original / 'generation.json').is_file())
 
+    def test_occasion_requests_center_the_commemorated_person(self):
+        path = self.app.create_job(self.root, '2026-09-28', 'saint', 'occasion')
+        job = self.app.load_job(path)
+        job['evidence'] = evidence()
+        occasion = dict(name='합성 테스트 성인', rank='기념일', date='2026-09-28',
+                        source_url='https://missa.cbck.or.kr/DailyMissa/20260928',
+                        biography_url='https://www.vatican.va/', meaning='합성 테스트 의미',
+                        symbols='합성 테스트 상징', choice_note='합성 데이터 테스트')
+        job['evidence']['occasion'] = occasion
+        job['evidence']['occasions'] = [occasion]
+        self.app.save_job(path, job)
+        copy = content()
+        copy['threads_text'] = copy['blog_text'] = '오늘 9월 28일은 합성 테스트 성인 기념일입니다.'
+        prepared = self.app.prepare(path, copy, scenes())
+        for label in 'ABC':
+            request = json.loads((prepared / f'{label}-request.json').read_text())
+            self.assertIn('commemorated saint', request['prompt'])
+            self.assertNotIn('WIDE BUT EDITED DOWN', request['prompt'])
+            self.assertNotIn('for the verified Catholic Gospel', request['prompt'])
+            self.assertNotIn('wide.png', [Path(p).name for p in request['referenced_image_paths']])
+        self.assertIn('portrait', json.loads((prepared / 'A-request.json').read_text())['prompt'])
+        self.assertIn('close crop', json.loads((prepared / 'B-request.json').read_text())['prompt'])
+
     def test_prepare_rejects_unverified_context_and_invalid_public_copy(self):
         self.assertTrue(callable(getattr(self.app, 'prepare', None)), 'Generation preparation is missing')
         path = self.app.create_job(self.root, '2026-09-28', 'copy', 'gospel')
