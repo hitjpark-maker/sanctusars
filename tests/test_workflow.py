@@ -300,6 +300,8 @@ class DatesAndJobs(unittest.TestCase):
             self.assertIn('one subtle area of textured light', request['prompt'])
             self.assertIn('camera axis and focal alignment', request['prompt'])
             self.assertIn('not from a fixed list or quota', request['prompt'])
+            self.assertIn('not for composition or character design', request['prompt'])
+            self.assertIn('A visually polished result that resembles a reference face or layout is a failed candidate', request['prompt'])
             self.assertEqual(len(request['referenced_image_paths']), 2)
             self.assertFalse(request['transparent_background'])
             reference_names = {'A': ('wide.png', 'minimal.png'),
@@ -356,6 +358,8 @@ class DatesAndJobs(unittest.TestCase):
             self.assertIn('commemorated saint', request['prompt'])
             self.assertIn('Choose camera axis and focal alignment', request['prompt'])
             self.assertIn('not to fill a fixed set', request['prompt'])
+            self.assertIn('not for composition or character design', request['prompt'])
+            self.assertIn('A visually polished result that resembles a reference face or layout is a failed candidate', request['prompt'])
             self.assertNotIn('WIDE BUT EDITED DOWN', request['prompt'])
             self.assertNotIn('for the verified Catholic Gospel', request['prompt'])
             self.assertNotIn('wide.png', [Path(p).name for p in request['referenced_image_paths']])
