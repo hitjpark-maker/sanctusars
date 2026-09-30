@@ -298,6 +298,8 @@ class DatesAndJobs(unittest.TestCase):
             self.assertIn(evidence()['quotation'], request['prompt'])
             self.assertIn(scenes()[label]['scene'], request['prompt'])
             self.assertIn('one subtle area of textured light', request['prompt'])
+            self.assertIn('camera axis and focal alignment', request['prompt'])
+            self.assertIn('not from a fixed list or quota', request['prompt'])
             self.assertEqual(len(request['referenced_image_paths']), 2)
             self.assertFalse(request['transparent_background'])
             reference_names = {'A': ('wide.png', 'minimal.png'),
@@ -352,6 +354,8 @@ class DatesAndJobs(unittest.TestCase):
         for label in 'ABC':
             request = json.loads((prepared / f'{label}-request.json').read_text())
             self.assertIn('commemorated saint', request['prompt'])
+            self.assertIn('Choose camera axis and focal alignment', request['prompt'])
+            self.assertIn('not to fill a fixed set', request['prompt'])
             self.assertNotIn('WIDE BUT EDITED DOWN', request['prompt'])
             self.assertNotIn('for the verified Catholic Gospel', request['prompt'])
             self.assertNotIn('wide.png', [Path(p).name for p in request['referenced_image_paths']])
