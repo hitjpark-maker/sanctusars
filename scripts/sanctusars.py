@@ -237,8 +237,7 @@ def validate_content(job: dict, content: dict, *, compact: bool = False,
             raise ValueError('게시문 날짜가 검증한 복음 날짜와 다릅니다')
 
 
-def prepare(job_path: Path, content: dict, scenes: dict, *, extended_message: str | None = None,
-            style: str = 'v5') -> Path:
+def prepare(job_path: Path, content: dict, scenes: dict, *, extended_message: str | None = None) -> Path:
     """Freeze native image-tool inputs, not generated artwork or a quality verdict."""
     job_path = Path(job_path).resolve()
     job = load_job(job_path)
@@ -251,10 +250,8 @@ def prepare(job_path: Path, content: dict, scenes: dict, *, extended_message: st
                 not isinstance(value, str) or not value.strip() for value in scene.values()):
             raise ValueError('후보마다 scene과 scripture_relation 두 항목만 작성하세요')
     brand = Path(__file__).resolve().parents[1] / 'brand'
-    if style not in ('v4', 'v5'):
-        raise ValueError('등록되지 않은 스타일입니다')
-    config_path = brand / ('generation.json' if style == 'v4' else 'references/v5/generation.json')
-    manifest_path = brand / f'references/{style}/manifest.json'
+    config_path = brand / 'references/v5/generation.json'
+    manifest_path = brand / 'references/v5/manifest.json'
     config = json.loads(config_path.read_text(encoding='utf-8'))
     manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
     if config.get('version') != '2' or set(config.get('profiles', {})) != set('ABC') or not config.get('common_prompt', '').strip():
@@ -571,7 +568,6 @@ def main() -> int:
             command.add_argument('content', type=Path)
             command.add_argument('scenes', type=Path)
             command.add_argument('--extended-message')
-            command.add_argument('--style', choices=('v4', 'v5'), default='v5')
         elif name == 'candidate':
             command.add_argument('label', choices=list('ABC'))
             command.add_argument('image', type=Path)
@@ -621,7 +617,7 @@ def main() -> int:
         elif args.command == 'prepare':
             print(prepare(path, json.loads(args.content.read_text(encoding='utf-8')),
                           json.loads(args.scenes.read_text(encoding='utf-8')),
-                          extended_message=args.extended_message, style=args.style))
+                          extended_message=args.extended_message))
         elif args.command == 'candidate':
             prompt = (json.loads(args.request_file.read_text(encoding='utf-8'))['prompt'] if args.request_file else
                       args.prompt_file.read_text(encoding='utf-8'))
