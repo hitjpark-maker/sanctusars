@@ -340,6 +340,9 @@ class DatesAndJobs(unittest.TestCase):
         self.assertIn('RADICAL MINIMUM', request['prompt'])
         self.assertIn('Make this a dramatic minimum', request['prompt'])
         self.assertIn('Do not add more actors, props, theatrical beams', request['prompt'])
+        self.assertIn('Preserve one unmistakable concrete visual cue to the verified quoted line', request['prompt'])
+        c_request = json.loads((prepared / 'C-request.json').read_text())
+        self.assertIn('A different camera angle alone is not a new interpretation', c_request['prompt'])
         self.assertEqual(len(request['referenced_image_paths']), 2)
         self.assertEqual(Path(request['referenced_image_paths'][0]).name, 'minimal.png')
         self.assertEqual((prepared / 'generation.json').read_bytes(),
