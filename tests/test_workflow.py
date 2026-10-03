@@ -338,6 +338,8 @@ class DatesAndJobs(unittest.TestCase):
         prepared = self.app.prepare(path, content(), scenes())
         request = json.loads((prepared / 'B-request.json').read_text())
         self.assertIn('RADICAL MINIMUM', request['prompt'])
+        self.assertIn('Make this a dramatic minimum', request['prompt'])
+        self.assertIn('Do not add more actors, props, theatrical beams', request['prompt'])
         self.assertEqual(len(request['referenced_image_paths']), 2)
         self.assertEqual(Path(request['referenced_image_paths'][0]).name, 'minimal.png')
         self.assertEqual((prepared / 'generation.json').read_bytes(),
@@ -370,6 +372,7 @@ class DatesAndJobs(unittest.TestCase):
             self.assertNotIn('wide.png', [Path(p).name for p in request['referenced_image_paths']])
         self.assertIn('portrait', json.loads((prepared / 'A-request.json').read_text())['prompt'])
         self.assertIn('close crop', json.loads((prepared / 'B-request.json').read_text())['prompt'])
+        self.assertIn('quiet dramatic force', json.loads((prepared / 'B-request.json').read_text())['prompt'])
 
     def test_prepare_rejects_unverified_context_and_invalid_public_copy(self):
         self.assertTrue(callable(getattr(self.app, 'prepare', None)), 'Generation preparation is missing')
