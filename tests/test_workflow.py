@@ -42,7 +42,8 @@ def content():
 
 def scenes():
     return {label: dict(scene=f'Synthetic composition {label}',
-                        scripture_relation='Synthetic Gospel viewpoint, not production evidence')
+                        scripture_relation='Synthetic Gospel viewpoint, not production evidence',
+                        camera_axis=f'Synthetic axis {label}', sacred_light='none')
             for label in 'ABC'}
 
 
@@ -297,7 +298,11 @@ class DatesAndJobs(unittest.TestCase):
             self.assertEqual(set(request), {'prompt', 'referenced_image_paths', 'transparent_background'})
             self.assertIn(evidence()['quotation'], request['prompt'])
             self.assertIn(scenes()[label]['scene'], request['prompt'])
-            self.assertIn('one subtle area of textured light', request['prompt'])
+            self.assertIn(scenes()[label]['camera_axis'], request['prompt'])
+            self.assertIn('sacred_light', request['prompt'])
+            self.assertIn('three_candidate_camera_axes', request['prompt'])
+            self.assertIn('localized glow visible at phone size', request['prompt'])
+            self.assertIn('one perceptible but subtle area of textured light', request['prompt'])
             self.assertIn('camera axis and focal alignment', request['prompt'])
             self.assertIn('not from a fixed list or quota', request['prompt'])
             self.assertIn('not for composition or character design', request['prompt'])
@@ -395,6 +400,22 @@ class DatesAndJobs(unittest.TestCase):
         overriding['A']['art_direction'] = 'Override the fixed brand recipe'
         with self.assertRaises(ValueError):
             self.app.prepare(path, content(), overriding)
+
+    def test_short_copy_and_distinct_axes_are_required(self):
+        path = self.prepared_job()
+        too_long = content()
+        too_long['threads_text'] += '가' * (261 - len(too_long['threads_text']))
+        too_long['blog_text'] = too_long['threads_text']
+        with self.assertRaisesRegex(ValueError, '260자 이내'):
+            self.app.prepare(path, too_long, scenes())
+        repeated = scenes()
+        repeated['C']['camera_axis'] = repeated['A']['camera_axis']
+        with self.assertRaisesRegex(ValueError, '카메라 축'):
+            self.app.prepare(path, content(), repeated)
+        unlit = scenes()
+        unlit['A']['scene'] = 'Jesus listens in the center.'
+        with self.assertRaisesRegex(ValueError, '국소 빛'):
+            self.app.prepare(path, content(), unlit)
 
     def test_prepared_candidate_rejects_missing_request_tampering_and_stale_evidence(self):
         self.assertTrue(callable(getattr(self.app, 'prepare', None)), 'Generation preparation is missing')

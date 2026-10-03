@@ -1,5 +1,5 @@
 {
-  "A": {"scene": "", "scripture_relation": ""},
-  "B": {"scene": "", "scripture_relation": ""},
-  "C": {"scene": "", "scripture_relation": ""}
+  "A": {"scene": "", "scripture_relation": "", "camera_axis": "", "sacred_light": ""},
+  "B": {"scene": "", "scripture_relation": "", "camera_axis": "", "sacred_light": ""},
+  "C": {"scene": "", "scripture_relation": "", "camera_axis": "", "sacred_light": ""}
 }
