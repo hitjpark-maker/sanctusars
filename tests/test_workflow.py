@@ -408,8 +408,9 @@ class DatesAndJobs(unittest.TestCase):
             self.assertNotIn('for the verified Catholic Gospel', request['prompt'])
             self.assertNotIn('wide.png', [Path(p).name for p in request['referenced_image_paths']])
         self.assertIn('portrait', json.loads((prepared / 'A-request.json').read_text())['prompt'])
-        self.assertIn('close crop', json.loads((prepared / 'B-request.json').read_text())['prompt'])
-        self.assertIn('quiet dramatic force', json.loads((prepared / 'B-request.json').read_text())['prompt'])
+        self.assertIn('complete readable gesture or expression', json.loads((prepared / 'B-request.json').read_text())['prompt'])
+        self.assertIn('simplest option', json.loads((prepared / 'B-request.json').read_text())['prompt'])
+        self.assertIn('spacious full-figure frontal view', json.loads((prepared / 'C-request.json').read_text())['prompt'])
 
     def test_prepare_rejects_unverified_context_and_invalid_public_copy(self):
         self.assertTrue(callable(getattr(self.app, 'prepare', None)), 'Generation preparation is missing')
