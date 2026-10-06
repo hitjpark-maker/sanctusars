@@ -88,6 +88,8 @@ python3 scripts/sanctusars.py export job.json
 
 ## 검증
 
+**한 포스팅의 인물·복장 연속성:** `scenes.json` 최상위의 `character_continuity`에 역할별 외형과 의복 형태·기본 색을 한 번 적으면 prepare가 A/B/C 입력 모두에 동일하게 넣는다. 일부만 보이는 시안도 같은 인물과 옷으로 이어지며 시점·표정·생략은 각 장면에 맞게 달리한다. 인물이 없는 경우 그 사실을 명시한다. 이 필드는 신규 prepare에서 필수이며, 예전 scenes를 재사용할 때는 Codex가 보완한다. 공통 설정을 변경하면 이전 후보는 새 입력과 맞지 않아 다시 생성해야 한다. 과거 준비 파일과 결과는 보존한다. 입력 일치 검사는 외형의 시각적 일치를 보증하지 않으므로 세 장을 나란히 검수하고 불일치 후보를 새로 만든다.
+
 ```sh
 python3 -m unittest discover -s tests -v
 ```

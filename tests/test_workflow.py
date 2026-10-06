@@ -41,10 +41,11 @@ def content():
 
 
 def scenes():
-    return {label: dict(scene=f'Synthetic composition {label}',
+    return {'character_continuity': 'Synthetic traveler: short dark hair, ivory tunic, sage mantle.',
+            **{label: dict(scene=f'Synthetic composition {label}',
                         scripture_relation='Synthetic Gospel viewpoint, not production evidence',
                         camera_axis=f'Synthetic axis {label}', sacred_light='none')
-            for label in 'ABC'}
+               for label in 'ABC'}}
 
 
 def png(path, color, width=2, height=2):
@@ -348,6 +349,39 @@ class DatesAndJobs(unittest.TestCase):
         self.assertEqual((prepared / 'generation.json').read_bytes(),
                          (SCRIPT.parent.parent / 'brand/references/v5/generation.json').read_bytes())
         self.assertTrue((path.parent / original / 'generation.json').is_file())
+
+    def test_shared_character_design_reaches_every_request_and_changes_invalidate_candidates(self):
+        path = self.prepared_job()
+        self.candidates(path)
+        original = self.app.load_job(path)['prepared']
+        for label in 'ABC':
+            request = json.loads((path.parent / original['directory'] / f'{label}-request.json').read_text())
+            subject, _ = json.JSONDecoder().raw_decode(request['prompt'].split('\n', 1)[1])
+            self.assertEqual(subject['character_continuity'],
+                             'Synthetic traveler: short dark hair, ivory tunic, sage mantle.')
+        changed = scenes()
+        changed['character_continuity'] = 'Synthetic traveler: short dark hair, ivory tunic, blue mantle.'
+        self.app.prepare(path, content(), changed)
+        current = self.app.load_job(path)['prepared']
+        for label in 'ABC':
+            self.assertNotEqual(original['fingerprints'][label], current['fingerprints'][label])
+        with self.assertRaises(ValueError):
+            self.app.select_candidate(path, 'A', '합성 선택')
+        for i, label in enumerate('ABC'):
+            self.register(path, label, png(path.parent / f'changed-{label}.png', (20 + i, 30, 40)))
+        self.app.select_candidate(path, 'A', '합성 선택')
+
+    def test_prepare_requires_explicit_shared_character_design(self):
+        path = self.prepared_job()
+        for value in (None, '', '  ', {}, []):
+            invalid = scenes()
+            invalid['character_continuity'] = value
+            with self.subTest(value=value), self.assertRaisesRegex(ValueError, '공통 인물'):
+                self.app.prepare(path, content(), invalid)
+        missing = scenes()
+        del missing['character_continuity']
+        with self.assertRaisesRegex(ValueError, '공통 인물'):
+            self.app.prepare(path, content(), missing)
 
     def test_occasion_requests_center_the_commemorated_person(self):
         path = self.app.create_job(self.root, '2026-09-28', 'saint', 'occasion')
