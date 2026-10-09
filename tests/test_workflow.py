@@ -44,7 +44,7 @@ def scenes():
     return {'character_continuity': 'Synthetic traveler: short dark hair, ivory tunic, sage mantle.',
             **{label: dict(scene=f'Synthetic composition {label}',
                         scripture_relation='Synthetic Gospel viewpoint, not production evidence',
-                        camera_axis=f'Synthetic axis {label}', sacred_light='none')
+                        camera_axis=f'Synthetic axis {label}', sacred_light='none', sacred_subjects=[], scene_light={'mode': 'ambient'})
                for label in 'ABC'}}
 
 
@@ -303,7 +303,7 @@ class DatesAndJobs(unittest.TestCase):
             self.assertIn('sacred_light', request['prompt'])
             self.assertIn('three_candidate_camera_axes', request['prompt'])
             self.assertIn('localized glow visible at phone size', request['prompt'])
-            self.assertIn('one perceptible but subtle area of textured light', request['prompt'])
+            self.assertIn('sacred_light_policy', request['prompt'])
             self.assertIn('camera axis and focal alignment', request['prompt'])
             self.assertIn('not from a fixed list or quota', request['prompt'])
             self.assertIn('not for composition or character design', request['prompt'])
@@ -441,6 +441,100 @@ class DatesAndJobs(unittest.TestCase):
         overriding['A']['art_direction'] = 'Override the fixed brand recipe'
         with self.assertRaises(ValueError):
             self.app.prepare(path, content(), overriding)
+
+    def test_sacred_light_is_selected_per_subject_not_shared_across_types(self):
+        path = self.prepared_job()
+        design = scenes()
+        entries = {
+            'A': [{'name': '아브라함', 'kind': 'saint', 'light_form': 'subtle'}],
+            'B': [{'name': '예수님', 'kind': 'divine', 'light_form': 'divine_halo'},
+                  {'name': '성모님', 'kind': 'mary', 'light_form': 'subtle'}],
+            'C': [{'name': '가브리엘', 'kind': 'angel', 'light_form': 'subtle'}],
+        }
+        for label in 'ABC':
+            design[label]['sacred_subjects'] = entries[label]
+            design[label]['sacred_light'] = 'Behind the head, never on skin.'
+        for kind in ('gospel', 'occasion'):
+            if kind == 'occasion':
+                job = self.app.load_job(path)
+                job['kind'] = 'occasion'
+                occasion = dict(name='아브라함', date=job['date'], rank='synthetic',
+                                source_url='https://example.org/saint', biography_url='https://example.org/bio',
+                                meaning='Synthetic test only', symbols='none', choice_note='Synthetic only')
+                job['evidence']['occasion'] = occasion
+                job['evidence']['occasions'] = [occasion]
+                self.app.save_job(path, job)
+            prepared = self.app.prepare(path, content(), design)
+            for label in 'ABC':
+                prompt = json.loads((prepared / f'{label}-request.json').read_text())['prompt']
+                subject, _ = json.JSONDecoder().raw_decode(prompt.split('\n', 1)[1])
+                self.assertEqual([x['name'] for x in subject['sacred_light_policy']],
+                                 [x['name'] for x in entries[label]])
+                self.assertEqual([x['light_form'] for x in subject['sacred_light_policy']],
+                                 [x['light_form'] for x in entries[label]])
+                if label == 'A':
+                    self.assertNotIn('may have a clearly visible', prompt)
+                    self.assertNotIn('divine_halo', prompt)
+
+    def test_sacred_light_rejects_wrong_identity_form_and_missing_classification(self):
+        path = self.prepared_job()
+        for entry in (
+            {'name': '아브라함', 'kind': 'divine', 'light_form': 'divine_halo'},
+            {'name': '성모님', 'kind': 'divine', 'light_form': 'divine_halo'},
+            {'name': '아브라함', 'kind': 'saint', 'light_form': 'divine_halo'},
+            {'name': '미카엘', 'kind': 'angel', 'light_form': 'divine_halo'},
+            {'name': '가브리엘', 'kind': 'angel', 'light_form': 'angel_arc'},
+            {'name': '아브라함', 'kind': 'saint', 'light_form': 'angel_arc'},
+        ):
+            invalid = scenes()
+            invalid['A']['sacred_subjects'] = [entry]
+            invalid['A']['sacred_light'] = 'behind head'
+            with self.subTest(entry=entry), self.assertRaises(ValueError):
+                self.app.prepare(path, content(), invalid)
+        for subjects in (None, {}, ['saint'], [{'name': '아브라함'}]):
+            invalid = scenes()
+            invalid['A']['sacred_subjects'] = subjects
+            with self.subTest(subjects=subjects), self.assertRaises(ValueError):
+                self.app.prepare(path, content(), invalid)
+        inconsistent = scenes()
+        for label, kind in (('A', 'saint'), ('C', 'angel')):
+            inconsistent[label]['sacred_subjects'] = [dict(name='아브라함', kind=kind, light_form='subtle')]
+            inconsistent[label]['sacred_light'] = 'head edge'
+        with self.assertRaisesRegex(ValueError, '분류 충돌'):
+            self.app.prepare(path, content(), inconsistent)
+        missing = scenes()
+        missing['A'].pop('sacred_subjects', None)
+        with self.assertRaises(ValueError):
+            self.app.prepare(path, content(), missing)
+
+    def test_scene_light_adds_event_drama_without_promoting_the_saint(self):
+        path = self.prepared_job()
+        design = scenes()
+        design['A']['sacred_subjects'] = [dict(name='아브라함', kind='saint', light_form='subtle')]
+        design['A']['sacred_light'] = 'A narrow garment edge.'
+        design['A']['scene_light'] = dict(mode='dramatic', source='Off-frame daylight from left',
+                                        focus='The first step into open space',
+                                        basis='Synthetic visual metaphor for departure, not a claim of miraculous light')
+        prepared = self.app.prepare(path, content(), design)
+        a = json.loads((prepared / 'A-request.json').read_text())['prompt']
+        subject, _ = json.JSONDecoder().raw_decode(a.split('\n', 1)[1])
+        self.assertEqual(subject['scene_light'], design['A']['scene_light'])
+        self.assertEqual(subject['sacred_light_policy'][0]['light_form'], 'subtle')
+        self.assertIn('does not upgrade', subject['scene_light_policy'])
+        self.assertNotIn('divine_halo', a)
+        b = json.loads((prepared / 'B-request.json').read_text())['prompt']
+        other, _ = json.JSONDecoder().raw_decode(b.split('\n', 1)[1])
+        self.assertEqual(other['scene_light']['mode'], 'ambient')
+        self.assertNotEqual(subject['scene_light_policy'], other['scene_light_policy'])
+
+    def test_dramatic_light_requires_source_focus_and_passage_basis(self):
+        path = self.prepared_job()
+        for value in (None, 'dramatic', {}, {'mode': 'divine'}, {'mode': 'dramatic'},
+                      dict(mode='dramatic', source='left', focus='step', basis=' ')):
+            bad = scenes()
+            bad['A']['scene_light'] = value
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                self.app.prepare(path, content(), bad)
 
     def test_short_copy_and_distinct_axes_are_required(self):
         path = self.prepared_job()

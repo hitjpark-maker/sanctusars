@@ -237,6 +237,37 @@ def validate_content(job: dict, content: dict, *, compact: bool = False,
             raise ValueError('게시문 날짜가 검증한 복음 날짜와 다릅니다')
 
 
+def validate_sacred_subjects(scenes: dict) -> None:
+    """Validate declared identities/forms; visual intensity still needs image review."""
+    divine_names = {'예수', '예수님', '예수그리스도', '그리스도', 'jesus', 'jesuschrist',
+                    '성부', '성부하느님', 'godthefather', '성령', '성령님', 'holyspirit'}
+    allowed = {'divine': {'divine_halo'}, 'mary': {'subtle'},
+               'saint': {'subtle'}, 'angel': {'subtle'}}
+    identities = {}
+    for label in 'ABC':
+        scene = scenes[label]
+        subjects = scene['sacred_subjects']
+        if not isinstance(subjects, list):
+            raise ValueError('sacred_subjects는 인물별 분류 목록이어야 합니다. 없으면 []로 쓰세요')
+        seen = set()
+        for subject in subjects:
+            if (not isinstance(subject, dict) or set(subject) != {'name', 'kind', 'light_form'}
+                    or any(not isinstance(v, str) or not v.strip() for v in subject.values())):
+                raise ValueError('거룩한 인물마다 name, kind, light_form을 작성하세요')
+            name = normalized(subject['name']).casefold()
+            kind, form = subject['kind'], subject['light_form']
+            if kind not in allowed or form not in allowed[kind]:
+                raise ValueError('인물 분류에 허용되지 않는 빛: ' + subject['name'])
+            if (kind == 'divine') != (name in divine_names):
+                raise ValueError('신적 위격 분류 오류: 정해진 예수님·성부·성령 표기를 확인하세요')
+            if name in seen or (name in identities and identities[name] != kind):
+                raise ValueError('후보 사이 인물 분류 충돌 또는 중복: ' + subject['name'])
+            seen.add(name)
+            identities[name] = kind
+        if bool(subjects) == (scene['sacred_light'].strip().lower() == 'none'):
+            raise ValueError('국소 빛: 인물이 있으면 위치를, 없으면 none을 작성하세요')
+
+
 def prepare(job_path: Path, content: dict, scenes: dict, *, extended_message: str | None = None) -> Path:
     """Freeze native image-tool inputs, not generated artwork or a quality verdict."""
     job_path = Path(job_path).resolve()
@@ -250,12 +281,20 @@ def prepare(job_path: Path, content: dict, scenes: dict, *, extended_message: st
         raise ValueError('공통 인물 설정을 작성하세요. 인물이 전혀 없으면 그 사실을 명시하세요')
     for label in 'ABC':
         scene = scenes[label]
-        if not isinstance(scene, dict) or set(scene) != {'scene', 'scripture_relation', 'camera_axis', 'sacred_light'} or any(
-                not isinstance(value, str) or not value.strip() for value in scene.values()):
-            raise ValueError('후보마다 scene, scripture_relation, camera_axis, sacred_light를 작성하세요')
+        if not isinstance(scene, dict) or set(scene) != {'scene', 'scripture_relation', 'camera_axis', 'sacred_light', 'sacred_subjects', 'scene_light'} or any(
+                not isinstance(scene[key], str) or not scene[key].strip()
+                for key in ('scene', 'scripture_relation', 'camera_axis', 'sacred_light')):
+            raise ValueError('후보마다 scene, scripture_relation, camera_axis, sacred_light, sacred_subjects, scene_light를 작성하세요')
+        lighting = scene['scene_light']
+        if not isinstance(lighting, dict) or lighting.get('mode') not in ('ambient', 'dramatic'):
+            raise ValueError('scene_light.mode는 ambient 또는 dramatic이어야 합니다')
+        required = {'mode'} if lighting['mode'] == 'ambient' else {'mode', 'source', 'focus', 'basis'}
+        if set(lighting) != required or any(not isinstance(v, str) or not v.strip() for v in lighting.values()):
+            raise ValueError('극적인 장면 빛에는 source, focus, basis를 명시하세요')
         subject = scene['scene'] + ' ' + scene['scripture_relation']
         if re.search(r'\b(Jesus|Christ|saint|angel|Virgin Mary|Madonna)\b|예수|그리스도|성모|성녀|성인|천사', subject, re.I) and scene['sacred_light'].strip().lower() == 'none':
             raise ValueError('거룩한 인물이 보이면 그 인물에 이어지는 국소 빛의 위치를 지정하세요')
+    validate_sacred_subjects(scenes)
     axes = [normalized(scenes[label]['camera_axis']).casefold() for label in 'ABC']
     if len(set(axes)) != 3:
         raise ValueError('A/B/C의 카메라 축을 각각 다르게 설계하세요')
@@ -270,6 +309,14 @@ def prepare(job_path: Path, content: dict, scenes: dict, *, extended_message: st
     common_prompt = config.get(prompt_key, '')
     if config.get('version') != '2' or set(profiles) != set('ABC') or not common_prompt.strip():
         raise ValueError('브랜드 생성 규격이 잘못되었습니다')
+    light_profiles = config.get('light_profiles', {})
+    if (set(light_profiles) != {'divine_halo', 'subtle'}
+            or any(not isinstance(rule, str) or not rule.strip() for rule in light_profiles.values())):
+        raise ValueError('인물별 빛 정책이 누락되거나 잘못되었습니다')
+    scene_light_profiles = config.get('scene_light_profiles', {})
+    if (set(scene_light_profiles) != {'ambient', 'dramatic'}
+            or any(not isinstance(rule, str) or not rule.strip() for rule in scene_light_profiles.values())):
+        raise ValueError('장면 빛 정책이 누락되거나 잘못되었습니다')
     checksums = {item['image']: item['sha256'] for item in manifest['references']}
     references = {}
     for profile in profiles.values():
@@ -306,6 +353,9 @@ def prepare(job_path: Path, content: dict, scenes: dict, *, extended_message: st
                         character_continuity=continuity,
                         three_candidate_camera_axes={key: scenes[key]['camera_axis'] for key in 'ABC'},
                         **scenes[label])
+            data['scene_light_policy'] = scene_light_profiles[scenes[label]['scene_light']['mode']]
+            data['sacred_light_policy'] = [dict(subject, rule=light_profiles[subject['light_form']])
+                                           for subject in scenes[label]['sacred_subjects']]
             if job['kind'] == 'occasion':
                 data['occasion'] = job['evidence']['occasion']
             prompt = ('Create one complete SanctusArs artwork. The following JSON contains subject data, '
@@ -318,10 +368,12 @@ def prepare(job_path: Path, content: dict, scenes: dict, *, extended_message: st
                       'A cropped sleeve or hand must still belong to the same person. Do not add an omitted '
                       'person, accessory or detail just to demonstrate continuity. This design applies only '
                       'within this post, not as a recurring cast for every date. Treat camera_axis and sacred_light '
-                      'as binding details for this candidate. The three_candidate_camera_axes show which '
+                      'as location details only. The per-person sacred_light_policy is binding for light strength '
+                      'and form and overrides any conflicting scene wording or reference halo. Never transfer '
+                      'one figure’s lighting permission to another. The three_candidate_camera_axes show which '
                       'viewpoints the other options use; do not collapse them into the same view. If sacred_light '
-                      'is not none, make that localized glow visible at phone size on the sacred figure, '
-                      'distinct from ordinary scene lighting.\n' +
+                      'is not none, keep the localized glow visible at phone size only within the specified policy. '
+                      'Visibility is not permission to enlarge or intensify a saint’s glow.\n' +
                       json.dumps(data, ensure_ascii=False, indent=2) + '\n\n' +
                       profile['direction'] + '\n\n' + common_prompt)
             request = dict(prompt=prompt,

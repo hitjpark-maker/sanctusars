@@ -1,6 +1,33 @@
 {
   "character_continuity": "",
-  "A": {"scene": "", "scripture_relation": "", "camera_axis": "", "sacred_light": ""},
-  "B": {"scene": "", "scripture_relation": "", "camera_axis": "", "sacred_light": ""},
-  "C": {"scene": "", "scripture_relation": "", "camera_axis": "", "sacred_light": ""}
+  "A": {
+    "scene": "",
+    "scripture_relation": "",
+    "camera_axis": "",
+    "sacred_light": "",
+    "sacred_subjects": [],
+    "scene_light": {
+      "mode": "ambient"
+    }
+  },
+  "B": {
+    "scene": "",
+    "scripture_relation": "",
+    "camera_axis": "",
+    "sacred_light": "",
+    "sacred_subjects": [],
+    "scene_light": {
+      "mode": "ambient"
+    }
+  },
+  "C": {
+    "scene": "",
+    "scripture_relation": "",
+    "camera_axis": "",
+    "sacred_light": "",
+    "sacred_subjects": [],
+    "scene_light": {
+      "mode": "ambient"
+    }
+  }
 }
